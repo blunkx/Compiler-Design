@@ -1,19 +1,66 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
+
+#define TO_UPPER(string, len)               \
+    do                                      \
+    {                                       \
+        for (int i = 0; i < len; i++)       \
+            string[i] = toupper(string[i]); \
+    } while (0)
+
+#define MAX_LINE_LENG 1024
+
+#define ADD_BUF strcat(buf, yytext);
+#define CLEAR_BUF memset(buf, 0, sizeof(buf));
+#define PRINT_LINE printf("%d: %s\n", line_num, buf);
+/*delimiters and operators*/
+#define token(t)               \
+    {                          \
+        ADD_BUF;               \
+        printf("<'%s'>\n", t); \
+    }
+/*all keywords*/
+#define tokenKw(t)           \
+    {                        \
+        ADD_BUF;             \
+        TO_UPPER(t, yyleng); \
+        printf("<%s>\n", t); \
+    }
+/*all keywords*/
+#define tokenId(t)               \
+    {                            \
+        ADD_BUF;                 \
+        printf("<id: %s>\n", t); \
+    }
+/*all constants*/
+#define tokenConstant(type, token)        \
+    {                                     \
+        ADD_BUF;                          \
+        printf("<%s:%s>\n", type, token); \
+    }
+
 int line_num = 1;
-char temp_str[1024];
-int temp_str_len = 0;
+char buf[MAX_LINE_LENG];
+
+
 %}
 
 space [ \t]
+
 delimiters [,:;\(\)\[\]\{\}]|->
 operators "+"|"-"|"*"|"/"|"%"|"<"|"<="|">="|">"|"!="|"&"|"|"|"!"|"="|"+="|"-="|"*="|"/="
-keywords bool|break|char|case|class|continue|declare|do|else|exit|false|float|for|fun|if|int|loop|print|println|return|string|true|val|var|while
+keywords bool|break|char|case|class|continue|declare|do|else|exit|float|for|fun|if|int|loop|print|println|return|string|val|var|while
 id  [a-zA-Z_][a-zA-Z0-9_]*
-/* (\"\") => ""  */
-constants [1-9][0-9]*
+
+int_constants 0|[1-9][0-9]*
+boolean_constants true|false
+real_constants [+-]?(0|[1-9][0-9]*)("."[0-9]*[1-9])([E|e][0-9]*)
 string_constants \"(\"\"|[^"])*\"
+
+
+
 single_line_cmt "//".*
 %x  comment
 
@@ -21,81 +68,84 @@ single_line_cmt "//".*
 
 "/*" {
     BEGIN(comment);
-    strcat(temp_str,yytext);
+    ADD_BUF ;
 }/*start cmt*/
 
 <comment>\n  {
-    printf("%d:c %s\n",line_num,temp_str);
-    memset(temp_str, 0, sizeof(temp_str));
+    PRINT_LINE;
+    CLEAR_BUF;
     ++line_num;
 } 
 
 <comment>[^*\n]* {
-    strcat(temp_str,yytext);
+    ADD_BUF;
 } 
 
 <comment>"*"+[^*/\n]*   {
-    strcat(temp_str,yytext);
+    ADD_BUF;
 }   
  
 <comment>"*"+"/" {
-    strcat(temp_str,yytext);
+    ADD_BUF;
     BEGIN(INITIAL);
 }/*back to init*/
 
 
 {delimiters} {
-    strcat(temp_str,yytext);
-    printf("<\'%s\'>\n",yytext);
+    token(yytext);
 }
 
 {operators} {
-    strcat(temp_str,yytext);
-    printf("op<\'%s\'>\n",yytext);
+    token(yytext);
 }
 
 {keywords} {
-    strcat(temp_str,yytext);
-    printf("<\'%s\'>\n",yytext);
+    tokenKw(yytext);
 }
 
-{id} {
-    printf("<id: %s>\n",yytext);
-}/* */
+{int_constants} {
+    tokenConstant("integer",yytext);
+}
 
-{constants} {
-    strcat(temp_str,yytext);
-    printf("cons<%s>\n",yytext);
+{boolean_constants} {
+    tokenConstant("boolean",yytext);
+}
+
+{real_constants} {
+    tokenConstant("real",yytext);
 }
 
 {string_constants} {
-    strcat(temp_str,yytext);
-    // yytext+=1;
-    printf("str<%s>\n",yytext);
+    tokenConstant("string",yytext);
+}
+
+{id} {
+    tokenId(yytext);
 }
 
 {space} {
-    
+    ADD_BUF;
 }/*discard*/
 
 {single_line_cmt} {
-
-}
+    ADD_BUF;
+}/*discard*/
 
 "\n" {
-    printf("%d:b %s\n",line_num,temp_str);
-    memset(temp_str, 0, sizeof(temp_str));
+    PRINT_LINE;
+    CLEAR_BUF;
     ++line_num;
 }
 
 <<EOF>> {
-    printf("%d:eof %s",line_num,temp_str);
+    PRINT_LINE;
+    CLEAR_BUF;
     return 0;
 }
 
 %%
-int main(int argc, char *argv[]) {
-    while(yylex()){
-        
-    }
+int main(int argc, char *argv[])
+{
+    while (yylex())
+        ;
 }
