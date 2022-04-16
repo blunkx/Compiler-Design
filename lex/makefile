@@ -11,4 +11,4 @@ lex.yy.o: scanner.l
 # 	gcc -c -g symbols.c
 
 clean:
-	rm -f *.o lex.yy.c
+	rm -f *.o lex.yy.c scanner
