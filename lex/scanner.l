@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
-
+#include "symbols.h"
 #define TO_UPPER(string, len)               \
     do                                      \
     {                                       \
@@ -43,7 +43,7 @@
 
 int line_num = 1;
 char buf[MAX_LINE_LENG];
-
+symbol_table sym_tb;
 
 %}
 
@@ -121,6 +121,7 @@ single_line_cmt "//".*
 
 {id} {
     tokenId(yytext);
+    insert(yytext, "pending", "pending", &sym_tb);
 }
 
 {space} {
@@ -146,6 +147,8 @@ single_line_cmt "//".*
 %%
 int main(int argc, char *argv[])
 {
+    sym_tb = create();
     while (yylex())
         ;
+    print_tb(sym_tb);
 }
