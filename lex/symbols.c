@@ -43,6 +43,11 @@ int insert(char *_n, char *_type, char *_scope, symbol_table *tb)
     }
     else
     {
+        if (lookup(_n, *tb) != -1)
+        {
+            return 0;
+        }
+        printf("insert");
         while (temp_ptr->nptr != NULL)
         {
             temp_ptr = temp_ptr->nptr;
@@ -83,3 +88,15 @@ void print_tb(symbol_table tb)
         temp_ptr = temp_ptr->nptr;
     }
 }
+// int main()
+// {
+//     symbol_table tb = create();
+//     insert("s1", "P", "P", &tb);
+//     insert("s2", "P", "P", &tb);
+//     insert("s3", "P", "P", &tb);
+//     insert("s3", "P", "P", &tb);
+//     insert("s2", "P", "P", &tb);
+//     print_tb(tb);
+//     printf("%d\n", lookup("s1", tb));
+//     printf("%d\n", lookup("s3", tb));
+// }
