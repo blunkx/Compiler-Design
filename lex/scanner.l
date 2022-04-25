@@ -49,15 +49,14 @@ char *str_preprocess(const char *inp)
     copy_str(temp, inp);
     temp[strlen(temp) - 1] = '\0';
     temp += 1;
-    printf("%s\n", temp);
     char *pch = strtok(temp, "\"\"");
     char *result = malloc(sizeof(char *) * strlen(inp));
     while (pch != NULL)
     {
-        printf("%s\n", pch);
         strcat(result, pch);
-        strcat(result, "\"");
         pch = strtok(NULL, "\"\"");
+        if (pch)
+            strcat(result, "\"");
     }
     return result;
 }
