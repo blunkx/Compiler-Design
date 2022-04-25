@@ -145,3 +145,4 @@ format.c
 *.txt
 scanner
 **/test/
+*.kt
