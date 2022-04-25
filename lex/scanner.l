@@ -43,21 +43,46 @@
 int line_num = 1;
 char buf[MAX_LINE_LENG];
 symbol_table sym_tb;
-char *str_preprocess(const char *inp)
+/*
+Remove the first and last double quotes which wrap a string.
+Then, replace all two consecutive double quotes in the string with one double quote.
+*/
+char *str_preprocess(char *inp_)
 {
-    char *temp;
-    copy_str(temp, inp);
-    temp[strlen(temp) - 1] = '\0';
-    temp += 1;
-    char *pch = strtok(temp, "\"\"");
-    char *result = malloc(sizeof(char *) * strlen(inp));
-    while (pch != NULL)
+    char *inp = NULL;
+    copy_str(inp, inp_);
+    if (inp[0] == '\"' && inp[strlen(inp) - 1] == '\"')
     {
-        strcat(result, pch);
-        pch = strtok(NULL, "\"\"");
-        if (pch)
-            strcat(result, "\"");
+        inp[strlen(inp) - 1] = '\0';
+        inp++;
     }
+    char *result;
+    char *ins = inp;
+    char *temp;
+    size_t len_rep = strlen("\"\"");
+    size_t len_with = strlen("\"");
+    size_t len_front;
+    size_t count;
+    if (!inp)
+        return NULL;
+    count = 0;
+    while ((temp = strstr(ins, "\"\"")) != NULL)
+    {
+        ins = temp + len_rep;
+        ++count;
+    }
+    temp = result = malloc(strlen(inp) + (len_with - len_rep) * count + 1);
+    if (!result)
+        return NULL;
+    while (count--)
+    {
+        ins = strstr(inp, "\"\"");
+        len_front = ins - inp;
+        temp = strncpy(temp, inp, len_front) + len_front;
+        temp = strcpy(temp, "\"") + len_with;
+        inp += len_front + len_rep;
+    }
+    strcpy(temp, inp);
     return result;
 }
 %}
