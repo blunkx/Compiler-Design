@@ -71,7 +71,7 @@ id  [a-zA-Z_][a-zA-Z0-9_]*
 
 int_constants 0|[1-9][0-9]*
 boolean_constants true|false
-real_constants [+-]?(0|[1-9][0-9]*)("."[0-9]+)([E|e][-+]?[0-9]+)?
+real_constants [+-]?(0|[1-9][0-9]*)("."[0-9]+)?([E|e][-+]?[0-9]+)?
 string_constants \"(\"\"|[^"])*\"
 
 
