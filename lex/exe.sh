@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 prog_name=scanner
 if [[ -n "$1" ]]
 then
