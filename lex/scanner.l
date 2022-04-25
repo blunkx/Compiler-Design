@@ -3,18 +3,17 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "symbols.h"
+
+#define MAX_LINE_LENG 1024
+#define ADD_BUF strcat(buf, yytext);
+#define CLEAR_BUF memset(buf, 0, sizeof(buf));
+#define PRINT_LINE printf("%d: %s\n", line_num, buf);
 #define TO_UPPER(string, len)               \
     do                                      \
     {                                       \
         for (int i = 0; i < len; i++)       \
             string[i] = toupper(string[i]); \
     } while (0)
-
-#define MAX_LINE_LENG 1024
-
-#define ADD_BUF strcat(buf, yytext);
-#define CLEAR_BUF memset(buf, 0, sizeof(buf));
-#define PRINT_LINE printf("%d: %s\n", line_num, buf);
 /*delimiters and operators*/
 #define token(t)               \
     {                          \
@@ -28,7 +27,7 @@
         TO_UPPER(t, yyleng); \
         printf("<%s>\n", t); \
     }
-/*all keywords*/
+/*all identiers*/
 #define tokenId(t)               \
     {                            \
         ADD_BUF;                 \
@@ -44,7 +43,24 @@
 int line_num = 1;
 char buf[MAX_LINE_LENG];
 symbol_table sym_tb;
-
+char *str_preprocess(const char *inp)
+{
+    char *temp;
+    copy_str(temp, inp);
+    temp[strlen(temp) - 1] = '\0';
+    temp += 1;
+    printf("%s\n", temp);
+    char *pch = strtok(temp, "\"\"");
+    char *result = malloc(sizeof(char *) * strlen(inp));
+    while (pch != NULL)
+    {
+        printf("%s\n", pch);
+        strcat(result, pch);
+        strcat(result, "\"");
+        pch = strtok(NULL, "\"\"");
+    }
+    return result;
+}
 %}
 
 space [ \t]
@@ -116,7 +132,8 @@ single_line_cmt "//".*
 }
 
 {string_constants} {
-    tokenConstant("string",yytext);
+    char *temp = str_preprocess(yytext);
+    tokenConstant("string",temp);
 }
 
 {id} {
