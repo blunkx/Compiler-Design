@@ -1,11 +1,20 @@
-scanner: lex.yy.o symbols.o
-	gcc -o scanner lex.yy.o symbols.o -ll
-	cat input.txt| ./scanner >out.txt
-lex.yy.o: scanner.l
-	lex scanner.l
+parser: lex.yy.o y.tab.o symbols.o
+	gcc -o parser lex.yy.o y.tab.o symbols.o -ll
+
+lex.yy.o: lex.yy.c y.tab.h
 	gcc -c -g lex.yy.c
-symbols.o: symbols.c symbols.h
+
+y.tab.o: y.tab.c lex.yy.c
+	gcc -c -g y.tab.c
+
+y.tab.c y.tab.h: parser.y 
+	yacc -d parser.y 
+
+lex.yy.c: scanner.l
+	lex scanner.l
+
+symbols.o: symbols.c
 	gcc -c -g symbols.c
 
 clean:
-	rm -f *.o 
+	rm -f *.o lex.yy.c y.tab.* parser

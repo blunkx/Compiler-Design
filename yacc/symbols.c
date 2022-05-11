@@ -1,9 +1,5 @@
 #include "symbols.h"
-#define copy_str(des, src)                        \
-    {                                             \
-        des = malloc(sizeof(char) * strlen(src)); \
-        des = strcpy(des, src);                   \
-    }
+
 symbol_table create()
 {
     symbol_table temp;
@@ -11,6 +7,7 @@ symbol_table create()
     temp.size = 0;
     return temp;
 }
+
 int lookup(char *sym, symbol_table tb)
 {
     int index = 0;
@@ -27,6 +24,7 @@ int lookup(char *sym, symbol_table tb)
     }
     return -1;
 }
+
 int insert(char *_n, char *_type, char *_scope, symbol_table *tb)
 {
     symbol *temp_ptr = tb->begin;
@@ -43,6 +41,10 @@ int insert(char *_n, char *_type, char *_scope, symbol_table *tb)
     }
     else
     {
+        if (lookup(_n, *tb) != -1)
+        {
+            return 0;
+        }
         while (temp_ptr->nptr != NULL)
         {
             temp_ptr = temp_ptr->nptr;
@@ -72,6 +74,7 @@ void dump(symbol_table *tb)
         free(cur_ptr);
     }
 }
+
 void print_tb(symbol_table tb)
 {
     printf("\nSymbol Table:\n");

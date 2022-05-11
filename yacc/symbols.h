@@ -3,6 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#define copy_str(des, src)                        \
+    {                                             \
+        des = malloc(sizeof(char) * strlen(src)); \
+        des = strcpy(des, src);                   \
+    }
+
 typedef struct s
 {
     char *name;
