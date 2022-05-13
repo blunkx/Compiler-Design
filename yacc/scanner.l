@@ -92,7 +92,10 @@ single_line_cmt "//".*
 "*=" { return EQ_MUL; }
 "/=" { return EQ_DIV; }
 
-"bool" { return BOOL; }
+"bool" {
+    yylval.int4 = UI_VAL;
+    return BOOL;
+}
 "break" { return BREAK; }
 "char" { return CHAR; }
 "case" { return CASE; }
@@ -102,16 +105,25 @@ single_line_cmt "//".*
 "do" { return DO; }
 "else" { return ELSE; }
 "exit" { return EXIT; }
-"float" { return FLOAT; }
+"float" {
+    yylval.int4 = FP_VAL;
+    return FLOAT;
+}
 "for" { return FOR; }
 "fun" { return FUN; }
 "if" { return IF; }
-"int" { return INT; }
+"int" { 
+    yylval.int4 = INT_VAL;
+    return INT; 
+}
 "loop" { return LOOP; }
 "print" { return PRINT; }
 "println" { return PRINTLN; }
 "return" { return RETURN; }
-"string" { return STRING; }
+"string" {
+    yylval.int4 = STR_VAL;
+    return STRING;
+}
 "var" { return VAR; }
 "val" { return VAL; }
 "while" { return WHILE; }
@@ -142,7 +154,8 @@ single_line_cmt "//".*
 }
 
 {real_constants} {
-    yylval.fp = 0.1;
+    // yylval.fp = 0.1;
+    yylval.fp = atof(yytext);
     return REAL_CONS;
 }
 
@@ -169,10 +182,3 @@ single_line_cmt "//".*
 <<EOF>> { return 0; }
 
 %%
-// int main(int argc, char *argv[])
-// {
-//     sym_tb = create();
-//     while (yylex())
-//         ;
-//     print_tb(sym_tb);
-// }
