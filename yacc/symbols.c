@@ -100,6 +100,28 @@ void insert(symbol *const sym, symbol_table *tb)
     return;
 }
 
+void insert_dup(symbol *const sym, symbol_table *tb)
+{
+    symbol *temp_ptr = tb->begin;
+    if (temp_ptr == NULL)
+    {
+        tb->begin = sym;
+        tb->size += 1;
+    }
+    else
+    {
+        while (temp_ptr->nptr != NULL)
+        {
+            temp_ptr = temp_ptr->nptr;
+        }
+        sym->pptr = temp_ptr;
+        sym->nptr = NULL;
+        temp_ptr->nptr = sym;
+        tb->size += 1;
+    }
+    return;
+}
+
 void dump(symbol_table *tb)
 {
     symbol *temp_ptr = tb->begin;
@@ -171,7 +193,7 @@ void print_tb(symbol_table tb)
             if (temp_ptr->argn > 0)
             {
                 int i = 0;
-                for (; i < temp_ptr->argn; i++)
+                for (i = temp_ptr->argn - 1; i >= 0; i--)
                 {
                     printf("%s:%s\t", temp_ptr->arg_name[i], get_type_str(temp_ptr->arg_type[i]));
                 }
@@ -265,12 +287,12 @@ symbol *search_id(char *_n, stack st)
         symbol *result = lookup(_n, *temp_ptr);
         if (result != NULL)
         {
-            printf("Find %s\n", _n);
+            // printf("Find %s\n", _n);
             return result;
         }
         temp_ptr = temp_ptr->pptr;
     }
-    printf("%s not found\n", _n);
+    // printf("%s not found\n", _n);
     return NULL;
 }
 
@@ -286,83 +308,4 @@ void create_fun_arg_info(symbol *temp, symbol_table *arg_tb)
         temp->arg_name[i] = strdup(temp_ptr->name);
         temp_ptr = temp_ptr->nptr;
     }
-    // while (temp_ptr != NULL)
-    // {
-    // }
 }
-// int main()
-// {
-//     stack *s = create_stack();
-//     value val;
-//     // symbol_table *global = create_tb();
-//     push(create_tb(), s);
-//     val.int4 = -100;
-//     insert(create_sym("id1", INT_VAL, val), top(*s));
-
-//     val.sizet = 65000;
-//     insert(create_sym("g_id2", UI_VAL, val), top(*s));
-
-//     val.fp = 0.123;
-//     insert(create_sym("g_id3", FP_VAL, val), top(*s));
-
-//     val.str = strdup("global");
-//     insert(create_sym("g_id4", STR_VAL, val), top(*s));
-
-//     print_stack(*s);
-
-//     symbol_table *sigma = create_tb();
-//     push(sigma, s);
-//     val.int4 = -2;
-//     insert(create_sym("id1", INT_VAL, val), top(*s));
-
-//     val.sizet = 87;
-//     insert(create_sym("s_id2", UI_VAL, val), top(*s));
-
-//     val.fp = 1.256;
-//     insert(create_sym("s_id3", FP_VAL, val), top(*s));
-
-//     val.str = strdup("sigma");
-//     insert(create_sym("s_id4", STR_VAL, val), top(*s));
-
-//     print_stack(*s);
-//     symbol *sym;
-//     sym = search_id("id1", *s);
-//     if (sym->type == INT_VAL)
-//     {
-//         printf("%ld\n", sym->v.int4);
-//     }
-
-//     sym = search_id("s_id2", *s);
-//     sym = search_id("g_id5", *s);
-//     symbol_table *test_for = create_tb();
-//     push(test_for, s);
-//     val.int4 = -2;
-//     insert(create_sym("l_id1", INT_VAL, val), top(*s));
-
-//     val.sizet = 87;
-//     insert(create_sym("l_id2", UI_VAL, val), top(*s));
-
-//     val.fp = 1.256;
-//     insert(create_sym("l_id3", FP_VAL, val), top(*s));
-
-//     val.str = strdup("for loop");
-//     insert(create_sym("l_id4", STR_VAL, val), top(*s));
-//     print_stack(*s);
-//     pop(s);
-//     print_stack(*s);
-
-//     symbol_table *fun = create_tb();
-//     push(fun, s);
-//     val.int4 = -2;
-//     insert(create_sym("f_id1", INT_VAL, val), top(*s));
-
-//     val.sizet = 87;
-//     insert(create_sym("f_id2", UI_VAL, val), top(*s));
-
-//     val.fp = 1.256;
-//     insert(create_sym("f_id3", FP_VAL, val), top(*s));
-
-//     val.str = strdup("fun");
-//     insert(create_sym("f_id4", STR_VAL, val), top(*s));
-//     print_stack(*s);
-// }

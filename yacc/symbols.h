@@ -53,6 +53,7 @@ typedef struct t
 symbol_table *create_tb();
 symbol *lookup(char *sym, symbol_table tb);
 void insert(symbol *const sym, symbol_table *tb);
+void insert_dup(symbol *const sym, symbol_table *tb);
 void dump(symbol_table *tb);
 void print_tb(symbol_table tb);
 
@@ -64,6 +65,7 @@ stack *create_stack();
 void pop(stack *const st);
 void push(symbol_table *const tb, stack *const st);
 symbol_table *top();
+symbol *search_id(char *_n, stack st);
 void print_stack(stack st);
 
 void create_fun_arg_info(symbol *temp, symbol_table *arg_tb);
