@@ -1,6 +1,8 @@
 %{
 #include <stdio.h>
 #include "symbols.h"
+#define show_stack 0
+#define show_top 1
 extern int yylex(void);
 void init_arr(void *arr_ptr, int type, size_t len)
 {
@@ -39,6 +41,7 @@ void init_arr(void *arr_ptr, int type, size_t len)
 stack *s;
 value val;
 
+/* Temp symbol is not free. */
 /*Arg_tb is used for FUNC_ARG FUNC_ARGS FUNC_INV_ARG FUNC_INV_ARGS */
 symbol_table *arg_tb;
 
@@ -51,7 +54,17 @@ void yyerror(char *_s)
     exit(0);
 }
 
-/* Temp symbol is not free. */
+void show_tb(char *msg)
+{
+    if (show_stack == 1)
+    {
+        print_stack(*s);
+    }
+    else if (show_top == 1)
+    {
+        print_tb(*top(*s), msg);
+    }
+}
 %}
 
 %union
@@ -63,8 +76,8 @@ void yyerror(char *_s)
     symbol *sym;
     symbol_table *sym_tb;
 }
-%token <sizet> SIZE_T_CONS
-%token <int4> NEG_INT_CONS BOOL_CONS
+%token <sizet> BOOL_CONS
+%token <int4> INT_CONS 
 %token <fp> REAL_CONS
 %token <str> STR_CONS
 %token BREAK CHAR CASE CLASS CONTINUE DECLARE DO ELSE EXIT FALSE FOR FUN IF LOOP PRINT PRINTLN RETURN TRUE VAL VAR WHILE
@@ -85,14 +98,15 @@ void yyerror(char *_s)
 %type<int4> TYPE FUN_RE_TYPE OP
 %type<sym> EXP CONS TERM
 
-%type<int4> INT_CONS
 %%
 PROGRAM: 
-    |PROGRAM { 
-        symbol_table *class = create_tb(); 
+    |PROGRAM 
+    { 
+        symbol_table *class = create_tb();
         push(class, s);
-    } CLASS_UNIT {
-        // print_stack(*s);
+    } CLASS_UNIT 
+    {
+        show_tb("End");
         pop(s);
     }
 ;
@@ -109,7 +123,12 @@ CLASS_UNIT: CLASS ID
     } 
     CLASS_BODY '}' 
     {
-        // print_stack(*s);
+        symbol *id_val = search_id("main", *s);
+        if (id_val == NULL || id_val->type != FUNC_DEC)
+        {
+            yyerror("No main function in the class!");
+        }
+        show_tb("End of Class");
         pop(s);
     };
 
@@ -152,7 +171,7 @@ FUN_UNIT: FUN ID '('
     }
     FUNC_BODY '}'
     {
-        // print_stack(*s);
+        show_tb($2);
         pop(s);
     }
     |FUN MAIN '(' 
@@ -177,7 +196,7 @@ FUN_UNIT: FUN ID '('
     }
     FUNC_BODY '}' 
     {
-        print_stack(*s);
+        show_tb("End of main");
         pop(s);
     }
 ;
@@ -569,7 +588,7 @@ VAR_DECLARATION: VAR ID
 ;
 /* Warrning: Warning: Array declaration have no range protection. */
 /* Only allocate memory space for array */
-ARR_DECLARATION: VAR ID ':' TYPE '[' SIZE_T_CONS ']'
+ARR_DECLARATION: VAR ID ':' TYPE '[' INT_CONS ']'
     {
         switch ($4)
         { 
@@ -608,71 +627,97 @@ EXP: EXP OP TERM
         }
         else
         {
-            switch ($1->type)
-            { 
-            case UI_VAL:
-            case INT_VAL:
-            case FP_VAL:
+            // Javabyte code for operation
+            // (OP_NUM)*10 + (TYPE_NUM)
+            switch ($2 * 10 + $1->type)
+            {
+            case MUL_INT:
+            case MUL_FP:
+                $$ = create_sym("temp", $1->type, $1->v);
+                break;
+
+            case DIV_INT:
+                if ($3->v.int4 == 0)
+                    yyerror("Error divide 0!");
+                else
+                    $$ = create_sym("temp", $1->type, $1->v);
+                break;
+            case DIV_FP:
+                if ($3->v.fp == 0)
+                    yyerror("Error divide 0!");
+                else
+                    $$ = create_sym("temp", $1->type, $1->v);
+                break;
+
+            case ADD_INT:
+            case ADD_FP:
+                $$ = create_sym("temp", $1->type, $1->v);
+                break;
+
+            case MIN_INT:
+            case MIN_FP:
+                $$ = create_sym("temp", $1->type, $1->v);
+                break;
+
+            case L_INT:
+            case L_FP:
+                // Boolean exp return ture
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
+
+            case G_INT:
+            case G_FP:
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
+
+            case LE_INT:
+            case LE_FP:
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
+
+            case EQ_UI:
+            case EQ_INT:
+            case EQ_FP:
+            case EQ_STR:
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
+
+            case GE_INT:
+            case GE_FP:
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
+
+            case NEQ_UI:
+            case NEQ_INT:
+            case NEQ_FP:
+            case NEQ_STR:
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
+
+            case NOR_UI:
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
+
+            case AND_UI:
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
+            case OR_UI:
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
                 break;
             default:
                 yyerror("Invaild operation types");
                 break;
             }
-        }
-        // Javabyte code for operation
-        switch($2)
-        { 
-        case 0:
-            $$ = create_sym("temp", $1->type, $1->v);
-            break;
-        case 1:
-            $$ = create_sym("temp", $1->type, $1->v);
-            break;
-        case 2:
-            $$ = create_sym("temp", $1->type, $1->v);
-            break;
-        case 3:
-            $$ = create_sym("temp", $1->type, $1->v);
-            break;
-        case 4:
-            //Boolean exp return ture
-            val.sizet = 1;
-            $$ = create_sym("temp", UI_VAL, val);
-            break;
-        case 5:
-            val.sizet = 1;
-            $$ = create_sym("temp", UI_VAL, val);
-            break;
-        case 6:
-            val.sizet = 1;
-            $$ = create_sym("temp", UI_VAL, val);
-            break;
-        case 7:
-            val.sizet = 1;
-            $$ = create_sym("temp", UI_VAL, val);
-            break;
-        case 8:
-            val.sizet = 1;
-            $$ = create_sym("temp", UI_VAL, val);
-            break;
-        case 9:
-            val.sizet = 1;
-            $$ = create_sym("temp", UI_VAL, val);
-            break;
-        case 10:
-            val.sizet = 1;
-            $$ = create_sym("temp", UI_VAL, val);
-            break;
-        case 11:
-            val.sizet = 1;
-            $$ = create_sym("temp", UI_VAL, val);
-            break;
-        case 12:
-            val.sizet = 1;
-            $$ = create_sym("temp", UI_VAL, val);
-            break;
-        }
-        
+        }  
     }
     |TERM
     {
@@ -703,7 +748,6 @@ TERM: '-' TERM %prec UNARY_OP
         symbol *id_val = search_id($1, *s);
         if (id_val == NULL)
         {
-            // print_stack(*s);
             yyerror("Use undefined ID!");
         }
         else
@@ -716,32 +760,35 @@ TERM: '-' TERM %prec UNARY_OP
         // pass constant value to term
         $$ = $1;
     }
-    |ID '[' SIZE_T_CONS ']'
+    |ID '[' EXP ']'
     {
         symbol *id_val = search_id($1, *s);
         if (id_val == NULL)
         {
-            // print_stack(*s);
             yyerror("Use undefined ID!");
         }
         else
         {
+            if ($3->type != INT_VAL || $3->v.int4 < 0)
+            {
+                yyerror("Invaild index!");
+            }
             switch (id_val->type)
             {
             case ARR_UI:
-                val.sizet = ((size_t *)(id_val->v.arr_ptr))[$3];
+                val.sizet = ((size_t *)(id_val->v.arr_ptr))[$3->v.int4];
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
             case ARR_INT:
-                val.int4 = ((long *)(id_val->v.arr_ptr))[$3];
+                val.int4 = ((long *)(id_val->v.arr_ptr))[$3->v.int4];
                 $$ = create_sym("temp", INT_VAL, val);
                 break;
             case ARR_FP:
-                val.fp = ((double *)(id_val->v.arr_ptr))[$3];
+                val.fp = ((double *)(id_val->v.arr_ptr))[$3->v.int4];
                 $$ = create_sym("temp", FP_VAL, val);
                 break;
             case ARR_STR:
-                val.str = ((char **)(id_val->v.arr_ptr))[$3];
+                val.str = ((char **)(id_val->v.arr_ptr))[$3->v.int4];
                 $$ = create_sym("temp", STR_VAL, val);
                 break;
             default:
@@ -765,7 +812,7 @@ TERM: '-' TERM %prec UNARY_OP
         {
             if (id_val->type == FUNC_DEC)
             {
-                /* arg type check*/
+                /* arg type check and build initial table*/
                 if (id_val->argn == arg_tb->size)
                 {
                     symbol *temp_ptr = arg_tb->begin;
@@ -779,18 +826,18 @@ TERM: '-' TERM %prec UNARY_OP
                         free(temp_ptr->arg_name);
                         temp_ptr->name = strdup((id_val->arg_name)[i]);
                         temp_ptr = temp_ptr->nptr;
-                    }
-                    if (id_val->argn)
-                    {
-                        printf("\nFunction Invocation");
-                        print_tb(*(arg_tb));
-                    }
-                        
+                    }    
                 }
                 else
                 {
                     yyerror("Argument number not match!");
                 }
+
+                char *temp = malloc(sizeof(char) * (strlen($1) + 20));
+                strcpy(temp, "Call function ");
+                print_tb(*(arg_tb), strcat(temp, $1));
+                free(temp);
+
                 /*return type*/
                 switch (id_val->v.sizet)
                 {
@@ -893,17 +940,6 @@ TYPE: INT
     }
 ;
 
-
-INT_CONS: SIZE_T_CONS 
-    {
-        $$ = $1;
-    }
-    | NEG_INT_CONS
-    {
-        $$ = $1;
-    }
-;
-
 COND_STATEMENT: IF '(' EXP ')' STATEMENT_BODY ELSE STATEMENT_BODY
     {
         if ($3->type != UI_VAL)
@@ -927,7 +963,26 @@ LOOP_STATEMENT: WHILE '(' EXP ')' STATEMENT_BODY
             yyerror("Expression type in while statement must be bool");
         }
     }
-    |FOR '(' ID IN INT_CONS BETWEEN INT_CONS ')' STATEMENT_BODY
+    |FOR '(' ID IN INT_CONS BETWEEN INT_CONS ')' 
+    {
+        symbol *id_val = search_id($3, *s);
+        if (id_val == NULL)
+        {
+            yyerror("Use undefined ID!");
+        }
+        else
+        {
+            if (id_val->type == INT_VAL)
+            {
+                id_val->v.int4 = $5;
+            }
+            else
+            {
+                yyerror("Id in for loop must be int!");
+            }
+        }
+    }
+    STATEMENT_BODY
 ;
 
 /*Statement body => function body or single staement */
@@ -937,7 +992,7 @@ STATEMENT_BODY: '{'
     } 
     FUNC_BODY '}'
     {
-        // print_stack(*s);
+        show_tb("End of staement");
         pop(s);
     }
     |STATEMENT
@@ -947,9 +1002,9 @@ STATEMENT_BODY: '{'
 int main(void)
 {
     s = create_stack();
-    printf("Value represent return type, array size or real value!\n");
     while (yyparse())
     {
     }
+    free(s);
     return 0;
 }
