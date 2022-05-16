@@ -50,20 +50,15 @@ char *str_preprocess(char *inp_)
 %}
 
 space [ \t]
-
 single_delimiters [,:;\(\)\[\]\{\}]
 single_operators "+"|"-"|"*"|"/"|"%"|"<"|">"|"&"|"|"|"!"|"="
-id  [a-zA-Z_][a-zA-Z0-9_]*
-sizet_constants 0|[1-9][0-9]*
-neg_int_constants -[1-9][0-9]*
+id [a-zA-Z_][a-zA-Z0-9_]*
+int_constants 0|[1-9][0-9]*
 boolean_constants true|false
-real_constants [-]?(0|[1-9][0-9]*)("."[0-9]+)?([E|e][-+]?[0-9]+)?
+real_constants (0|[1-9][0-9]*)("."[0-9]+)?([E|e][-+]?[0-9]+)?
 string_constants \"(\"\"|[^"])*\"
-
-
-
 single_line_cmt "//".*
-%x  comment
+%x comment
 
 %%
 
@@ -133,28 +128,18 @@ single_line_cmt "//".*
 "in" { return IN; }
 "\.\." { return BETWEEN; }
 
-{sizet_constants} {
-    char *ptr_end;
-    yylval.sizet = strtol(yytext, &ptr_end, 10);
-    // printf("pos_int %zu\n", yylval.sizet);
-    return yylval.sizet >= 0 ? SIZE_T_CONS : 0;
-}
-
-{neg_int_constants} {
+{int_constants} {
     char *ptr_end;
     yylval.int4 = strtol(yytext, &ptr_end, 10);
-    // printf("neg_int %ld\n", yylval.int4);
-    return yylval.int4 < 0 ? NEG_INT_CONS : 0;
+    return yylval.sizet >= 0 ? INT_CONS : 0;
 }
 
 {boolean_constants} {
-    yylval.int4 = strcmp(yytext, "true") == 0 ? 1 : 0;
-    // printf("%ld\n", yylval.int4);
+    yylval.sizet = strcmp(yytext, "true") == 0 ? 1 : 0;
     return BOOL_CONS;
 }
 
 {real_constants} {
-    // yylval.fp = 0.1;
     yylval.fp = atof(yytext);
     return REAL_CONS;
 }
@@ -162,16 +147,13 @@ single_line_cmt "//".*
 {string_constants} {
     char *temp = str_preprocess(yytext);
     yylval.str = temp;
-    // printf("STR: %s\n", yylval.str);
     return STR_CONS;
 }
 
 {id} {
     yylval.str = strdup(yytext);
-    // printf("id: %s\n", yylval.str);
     return ID;
 }
-
 
 {space} {}
 
