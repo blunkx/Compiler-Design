@@ -159,9 +159,9 @@ char *get_type_str(size_t _type)
     }
     return "";
 }
-void print_tb(symbol_table tb)
+void print_tb(symbol_table tb, char *msg)
 {
-    printf("\nSymbol Table:\n");
+    printf("\nSymbol Table: %s\n", msg);
     symbol *temp_ptr = tb.begin;
     printf("%-12s|%-10s|%-10s\n", "Name:", "Type:", "Value:");
     while (temp_ptr != NULL)
@@ -189,16 +189,17 @@ void print_tb(symbol_table tb)
             temp_ptr = temp_ptr->nptr;
             break;
         case FUNC_DEC:
-            printf("%-12s|%-10s|%-16s|%-8lu\n", temp_ptr->name, "FUNC", get_type_str(temp_ptr->v.sizet), temp_ptr->argn);
+            printf("%-12s|%-10s|%-16s|%-5lu", temp_ptr->name, "FUNC", get_type_str(temp_ptr->v.sizet), temp_ptr->argn);
             if (temp_ptr->argn > 0)
             {
+                printf("|");
                 int i = 0;
                 for (i = temp_ptr->argn - 1; i >= 0; i--)
                 {
-                    printf("%s:%s\t", temp_ptr->arg_name[i], get_type_str(temp_ptr->arg_type[i]));
+                    printf("%s:%s  ", temp_ptr->arg_name[i], get_type_str(temp_ptr->arg_type[i]));
                 }
-                printf("\n\n");
             }
+            printf("\n");
             temp_ptr = temp_ptr->nptr;
             break;
         case ARR_UI:
@@ -274,10 +275,10 @@ void print_stack(stack st)
     symbol_table *temp_ptr = st.top_ptr;
     while (temp_ptr != NULL)
     {
-        print_tb(*temp_ptr);
+        print_tb(*temp_ptr, "");
         temp_ptr = temp_ptr->pptr;
     }
-    printf("=====END======\n");
+    printf("=====END======\n\n\n");
 }
 symbol *search_id(char *_n, stack st)
 {
@@ -287,12 +288,10 @@ symbol *search_id(char *_n, stack st)
         symbol *result = lookup(_n, *temp_ptr);
         if (result != NULL)
         {
-            // printf("Find %s\n", _n);
             return result;
         }
         temp_ptr = temp_ptr->pptr;
     }
-    // printf("%s not found\n", _n);
     return NULL;
 }
 

@@ -3,6 +3,50 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+enum OP_Type
+{
+    MUL_INT = 01,
+    MUL_FP = 02,
+
+    DIV_INT = 11,
+    DIV_FP = 12,
+
+    ADD_INT = 21,
+    ADD_FP = 22,
+
+    MIN_INT = 31,
+    MIN_FP = 32,
+
+    L_INT = 41,
+    L_FP = 42,
+
+    G_INT = 51,
+    G_FP = 52,
+
+    LE_INT = 61,
+    LE_FP = 62,
+
+    EQ_UI = 70,
+    EQ_INT = 71,
+    EQ_FP = 72,
+    EQ_STR = 73,
+
+    GE_INT = 81,
+    GE_FP = 82,
+
+    NEQ_UI = 90,
+    NEQ_INT = 91,
+    NEQ_FP = 92,
+    NEQ_STR = 93,
+
+    NOR_UI = 100,
+
+    AND_UI = 110,
+
+    OR_UI = 120,
+};
+
 enum Type
 {
     UI_VAL,
@@ -16,8 +60,8 @@ enum Type
     ARR_INT,
     ARR_FP,
     ARR_STR,
-
 };
+
 typedef union v
 {
     size_t sizet;
@@ -55,7 +99,7 @@ symbol *lookup(char *sym, symbol_table tb);
 void insert(symbol *const sym, symbol_table *tb);
 void insert_dup(symbol *const sym, symbol_table *tb);
 void dump(symbol_table *tb);
-void print_tb(symbol_table tb);
+void print_tb(symbol_table tb, char *msg);
 
 typedef struct st
 {
