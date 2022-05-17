@@ -47,7 +47,14 @@ char *str_preprocess(char *inp_)
     strcpy(temp, inp);
     return result;
 }
+
+int get_line_num()
+{
+    return yylineno;
+}
 %}
+
+%option yylineno
 
 space [ \t]
 single_delimiters [,:;\(\)\[\]\{\}]

@@ -4,6 +4,7 @@
 #define show_stack 0
 #define show_top 1
 extern int yylex(void);
+extern int get_line_num();
 void init_arr(void *arr_ptr, int type, size_t len)
 {
     int i = 0;
@@ -40,7 +41,6 @@ void init_arr(void *arr_ptr, int type, size_t len)
 
 stack *s;
 value val;
-
 /* Temp symbol is not free. */
 /*Arg_tb is used for FUNC_ARG FUNC_ARGS FUNC_INV_ARG FUNC_INV_ARGS */
 symbol_table *arg_tb;
@@ -49,8 +49,8 @@ void yyerror(char *_s)
 {
     // dump stack to check error
     print_stack(*s);
-    printf("%s\n", _s);
-    fprintf(stderr, "%s\n", _s);
+    printf("Line %d | %s\n", get_line_num(), _s);
+    fprintf(stderr, "Line %d | %s\n", get_line_num(), _s);
     exit(0);
 }
 
@@ -66,6 +66,7 @@ void show_tb(char *msg)
     }
 }
 %}
+%locations
 
 %union
 {
