@@ -96,7 +96,7 @@ void show_tb(char *msg)
 %left '+' '-'
 %left '*' '/'
 %nonassoc UNARY_OP
-%type<int4> TYPE FUN_RE_TYPE OP
+%type<int4> TYPE FUN_RE_TYPE
 %type<sym> EXP CONS TERM
 
 %%
@@ -583,8 +583,7 @@ VAR_DECLARATION: VAR ID
         else
         {
             yyerror("Duplicate declaration!");
-        }
-        
+        }   
     }
 ;
 /* Warrning: Warning: Array declaration have no range protection. */
@@ -619,98 +618,246 @@ ARR_DECLARATION: VAR ID ':' TYPE '[' INT_CONS ']'
     }
 ;
 
-EXP: EXP OP TERM
+EXP: EXP '*' EXP
     {
-        // OP EXP return the left most ID
         if($1->type != $3->type)
-        {
             yyerror("Operation between different types");
-        }
         else
         {
-            // Javabyte code for operation
-            // (OP_NUM)*10 + (TYPE_NUM)
-            switch ($2 * 10 + $1->type)
+            switch ($1->type)
             {
-            case MUL_INT:
-            case MUL_FP:
+            case INT_VAL:
+            case FP_VAL:
                 $$ = create_sym("temp", $1->type, $1->v);
                 break;
-
-            case DIV_INT:
-                if ($3->v.int4 == 0)
-                    yyerror("Error divide 0!");
-                else
-                    $$ = create_sym("temp", $1->type, $1->v);
+            default:
+                yyerror("Invaild operation types");
                 break;
-            case DIV_FP:
-                if ($3->v.fp == 0)
-                    yyerror("Error divide 0!");
-                else
-                    $$ = create_sym("temp", $1->type, $1->v);
-                break;
-
-            case ADD_INT:
-            case ADD_FP:
+            }
+        }  
+    }
+    |EXP '/' EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case INT_VAL:
+            case FP_VAL:
                 $$ = create_sym("temp", $1->type, $1->v);
                 break;
-
-            case MIN_INT:
-            case MIN_FP:
+            default:
+                yyerror("Invaild operation types");
+                break;
+            }
+        }  
+    }
+    |EXP '+' EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case INT_VAL:
+            case FP_VAL:
                 $$ = create_sym("temp", $1->type, $1->v);
                 break;
-
-            case L_INT:
-            case L_FP:
+            default:
+                yyerror("Invaild operation types");
+                break;
+            }
+        }  
+    }
+    |EXP '-' EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case INT_VAL:
+            case FP_VAL:
+                $$ = create_sym("temp", $1->type, $1->v);
+                break;
+            default:
+                yyerror("Invaild operation types");
+                break;
+            }
+        }  
+    }
+    |EXP LE EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case INT_VAL:
+            case FP_VAL:
                 // Boolean exp return ture
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
-
-            case G_INT:
-            case G_FP:
+            default:
+                yyerror("Invaild operation types");
+                break;
+            }
+        }  
+    }
+    |EXP GE EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case INT_VAL:
+            case FP_VAL:
+                // Boolean exp return ture
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
-
-            case LE_INT:
-            case LE_FP:
+            default:
+                yyerror("Invaild operation types");
+                break;
+            }
+        }  
+    }
+    |EXP EQ EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case UI_VAL:
+            case FP_VAL:
+                // Boolean exp return ture
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
-
-            case EQ_UI:
-            case EQ_INT:
-            case EQ_FP:
-            case EQ_STR:
+            default:
+                yyerror("Invaild operation types");
+                break;
+            }
+        }  
+    }
+    |EXP NEQ EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case INT_VAL:
+            case FP_VAL:
+                // Boolean exp return ture
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
-
-            case GE_INT:
-            case GE_FP:
+            default:
+                yyerror("Invaild operation types");
+                break;
+            }
+        }  
+    }
+    |EXP '>' EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case INT_VAL:
+            case FP_VAL:
+                // Boolean exp return ture
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
-
-            case NEQ_UI:
-            case NEQ_INT:
-            case NEQ_FP:
-            case NEQ_STR:
+            default:
+                yyerror("Invaild operation types");
+                break;
+            }
+        }  
+    }
+    |EXP '<' EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case INT_VAL:
+            case FP_VAL:
+                // Boolean exp return ture
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
-
-            case NOR_UI:
+            default:
+                yyerror("Invaild operation types");
+                break;
+            }
+        }  
+    }
+    |EXP '!' EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case UI_VAL:
+                // Boolean exp return ture
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
-
-            case AND_UI:
+            default:
+                yyerror("Invaild operation types");
+                break;
+            }
+        }  
+    }
+    |EXP '&' EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case UI_VAL:
+                // Boolean exp return ture
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
-            case OR_UI:
+            default:
+                yyerror("Invaild operation types");
+                break;
+            }
+        }  
+    }
+    |EXP '|' EXP
+    {
+        if($1->type != $3->type)
+            yyerror("Operation between different types");
+        else
+        {
+            switch ($1->type)
+            {
+            case UI_VAL:
+                // Boolean exp return ture
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
@@ -884,21 +1031,6 @@ FUNC_INV_ARGS:
     {
         insert_dup($2, arg_tb);
     }
-;
-
-OP: '*' { $$ = 0; }
-    |'/' { $$ = 1; }
-    |'+' { $$ = 2; }
-    |'-' { $$ = 3; }
-    |'<' { $$ = 4; }
-    |'>' { $$ = 5; }
-    |LE { $$ = 6; }
-    |EQ { $$ = 7; }
-    |GE { $$ = 8; }
-    |NEQ { $$ = 9; }
-    |'!' { $$ = 10; }
-    |'&' { $$ = 11; }
-    |'|' { $$ = 12; }
 ;
 
 CONS: INT_CONS
