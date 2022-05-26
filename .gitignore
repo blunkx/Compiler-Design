@@ -149,3 +149,6 @@ parser
 **/test/
 **/Kotlin/
 *.kt
+local_exe.sh
+**/output/
+**/javaa/*
