@@ -152,3 +152,5 @@ parser
 local_exe.sh
 **/output/
 **/javaa/*
+javaa
+/compiler/compiler
