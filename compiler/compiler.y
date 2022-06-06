@@ -74,6 +74,30 @@ void write_file(const char *msg)
     fprintf(java_byte_code, "%s", msg);
 }
 
+char *get_type(int _type)
+{
+    switch (_type)
+    {
+    case UI_VAL:
+        return "bool";
+        break;
+    case INT_VAL:
+        return "int";
+        break;
+    case FP_VAL:
+        return "float";
+        break;
+    case STR_VAL:
+        return "string";
+        break;
+    case VOID_TYPE:
+        return "void";
+        break; 
+    default:
+        return NULL;
+    }
+}
+
 %}
 %locations
 
@@ -125,17 +149,17 @@ PROGRAM:
 CLASS_UNIT: CLASS ID 
     {
         val.sizet= VOID_TYPE;
-        insert(create_sym($2, CLASS_DEC, val), top(*s));
-        fprintf(java_byte_code, "class %s\n{\n", $2);
+        insert(create_sym($2, CLASS_DEC, val), top(*s));      
     } 
     '{' 
     { 
+        fprintf(java_byte_code, "class %s\n{\n", $2);
         push(create_tb(), s);
     } 
     CLASS_BODY '}' 
     {
         fprintf(java_byte_code, "}");
-
+        
         symbol *id_val = search_id("main", *s);
         if (id_val == NULL || id_val->type != FUNC_DEC)
         {
@@ -146,8 +170,8 @@ CLASS_UNIT: CLASS ID
     };
 
 CLASS_BODY:
-    |CLASS_BODY CONS_DECLARATION 
-    |CLASS_BODY VAR_DECLARATION 
+    |CLASS_BODY GLOBAL_CONS_DECLARATION 
+    |CLASS_BODY GLOBAL_VAR_DECLARATION 
     |CLASS_BODY ARR_DECLARATION 
     |CLASS_BODY FUN_UNIT 
 ;
@@ -176,6 +200,11 @@ FUN_UNIT: FUN ID '('
             insert(temp, top(*s));
             push(arg_tb, s);
             arg_tb = NULL;
+
+            fprintf(java_byte_code, "method public static %s %s", get_type($7), $2);
+            fprintf(java_byte_code, "()\n");
+            fprintf(java_byte_code, "max_stack 15\n");
+            fprintf(java_byte_code, "max_locals 15\n{\n");
         }
         else
         {
@@ -184,6 +213,10 @@ FUN_UNIT: FUN ID '('
     }
     FUNC_BODY '}'
     {
+        if ($7 == VOID_TYPE)
+            fprintf(java_byte_code, "return\n}\n");
+        else
+            fprintf(java_byte_code, "}\n");
         show_tb($2);
         pop(s);
     }
@@ -191,16 +224,21 @@ FUN_UNIT: FUN ID '('
     {
         arg_tb = create_tb();
     }
-    FUNC_ARG ')' '{' 
+    ')' FUN_RE_TYPE '{' 
     { 
         if (lookup("main", *top(*s)) == NULL)
         {
-            val.sizet = VOID_TYPE;
+            val.sizet = $6;
             symbol *temp = create_sym("main", FUNC_DEC, val);
             temp->argn = arg_tb->size;
             insert(temp, top(*s));
             push(arg_tb, s);
             arg_tb = NULL;
+
+            fprintf(java_byte_code, "method public static %s %s", get_type($6), "main");
+            fprintf(java_byte_code, "()\n");
+            fprintf(java_byte_code, "max_stack 15\n");
+            fprintf(java_byte_code, "max_locals 15\n{\n");
         }
         else
         {
@@ -211,6 +249,8 @@ FUN_UNIT: FUN ID '('
     {
         show_tb("End of main");
         pop(s);
+
+        fprintf(java_byte_code, "return\n}\n");
     }
 ;
 
@@ -472,6 +512,146 @@ STATEMENT: ID '=' EXP
 not handle if id name is equal to fun or class name!!! 
 only check duplicate declaration in same scope
 */
+GLOBAL_CONS_DECLARATION: VAL ID '=' EXP 
+    {
+        if (lookup($2, *top(*s)) == NULL)
+        {
+            switch ($4->type)
+            {
+            case UI_VAL:   
+            case INT_VAL:
+            case FP_VAL:
+            case STR_VAL:
+                $4->name = strdup($2);
+                insert(add_sym_type_scope($4, CONST, GLOBAL), top(*s));
+                break;
+            default:
+                yyerror("Invaild declaration");
+                break;
+            }
+        }
+        else
+        {
+            yyerror("Duplicate declaration!");
+        }  
+    }
+    |VAL ID ':' TYPE '=' EXP
+    {
+        if (lookup($2, *top(*s)) == NULL)
+        {
+            if ($4 != $6->type)
+            {
+                yyerror("Declaration type error!");
+            }
+            $6->name = strdup($2);
+            insert(add_sym_type_scope($6, CONST, GLOBAL), top(*s));
+        }
+        else
+        {
+            yyerror("Duplicate declaration!");
+        }
+    }
+;
+
+/*Without type the assigning value only accept float expression*/
+GLOBAL_VAR_DECLARATION: VAR ID
+    {
+        if (lookup($2, *top(*s)) == NULL)
+        {
+            val.int4 = 0;
+            symbol *temp = create_sym($2, INT_VAL, val);
+            insert(add_sym_type_scope(temp, VARIABLE, GLOBAL), top(*s));
+
+            fprintf(java_byte_code, "field static %s %s\n", get_type(temp->type), $2);
+        }
+        else
+        {
+            yyerror("Duplicate declaration!");
+        }
+    }
+    |VAR ID ':' TYPE
+    {
+        if (lookup($2, *top(*s)) == NULL)
+        {
+            switch ($4)
+            {
+            case UI_VAL:   
+                val.sizet = 0;
+                insert(add_sym_type_scope(create_sym($2, UI_VAL, val), VARIABLE, GLOBAL), top(*s));
+
+                fprintf(java_byte_code, "field static %s %s\n", "bool", $2);
+                break;
+            case INT_VAL:
+                val.int4 = 0;
+                insert(add_sym_type_scope(create_sym($2, INT_VAL, val), VARIABLE, GLOBAL), top(*s));
+
+                fprintf(java_byte_code, "field static %s %s\n", "int", $2);
+                break;
+            case FP_VAL:
+                val.fp = 0.0;
+                insert(add_sym_type_scope(create_sym($2, FP_VAL, val), VARIABLE, GLOBAL), top(*s));
+
+                fprintf(java_byte_code, "field static %s %s\n", "float", $2);
+                break;
+            case STR_VAL:
+                val.str = strdup("");
+                insert(add_sym_type_scope(create_sym($2, STR_VAL, val), VARIABLE, GLOBAL), top(*s));
+
+                fprintf(java_byte_code, "field static %s %s\n", "string", $2);
+                break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            yyerror("Duplicate declaration!");
+        }
+    }
+    |VAR ID '=' EXP
+    {
+        if (lookup($2, *top(*s)) == NULL)
+        {
+            switch ($4->type)
+            {
+            case UI_VAL:   
+            case INT_VAL:
+            case FP_VAL:
+            case STR_VAL:
+                $4->name = strdup($2);
+                insert(add_sym_type_scope($4, VARIABLE, GLOBAL), top(*s));
+
+                fprintf(java_byte_code, "field static %s %s\n", get_type($4->type), $2);
+                break;
+            default:
+                yyerror("Invaild declaration");
+                break;
+            }
+        }
+        else
+        {
+            yyerror("Duplicate declaration!");
+        }
+    }
+    |VAR ID ':' TYPE '=' EXP
+    {
+        if (lookup($2, *top(*s)) == NULL)
+        {
+            if ($4 != $6->type)
+            {
+                yyerror("Declaration type error!");
+            }
+            $6->name = strdup($2);
+            insert(add_sym_type_scope($6, VARIABLE, GLOBAL), top(*s)); 
+
+            fprintf(java_byte_code, "field static %s %s\n", get_type($6->type), $2);
+        }
+        else
+        {
+            yyerror("Duplicate declaration!");
+        }   
+    }
+;
 
 CONS_DECLARATION: VAL ID '=' EXP 
     {
@@ -514,7 +694,7 @@ CONS_DECLARATION: VAL ID '=' EXP
     }
 ;
 
-/*Without type the assign value only accept float expression*/
+/*Without type the assigning value only accept float expression*/
 VAR_DECLARATION: VAR ID
     {
         if (lookup($2, *top(*s)) == NULL)
@@ -1152,5 +1332,6 @@ int main(void)
     {
     }
     free(s);
+    fclose (java_byte_code);
     return 0;
 }
