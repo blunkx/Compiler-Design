@@ -13,11 +13,11 @@ char *str_preprocess(char *inp_)
     */
     char *inp = NULL;
     inp = strdup(inp_);
-    if (inp[0] == '\"' && inp[strlen(inp) - 1] == '\"')
-    {
-        inp[strlen(inp) - 1] = '\0';
-        inp++;
-    }
+    // if (inp[0] == '\"' && inp[strlen(inp) - 1] == '\"')
+    // {
+    //     inp[strlen(inp) - 1] = '\0';
+    //     inp++;
+    // }
     char *result;
     char *ins = inp;
     char *temp;
@@ -60,9 +60,9 @@ space [ \t]
 single_delimiters [,:;\(\)\[\]\{\}]
 single_operators "+"|"-"|"*"|"/"|"%"|"<"|">"|"&"|"|"|"!"|"="
 id [a-zA-Z_][a-zA-Z0-9_]*
-int_constants 0|[1-9][0-9]*
+int_constants 0|-?[1-9][0-9]*
 boolean_constants true|false
-real_constants (0|[1-9][0-9]*)("."[0-9]+)?([E|e][-+]?[0-9]+)?
+real_constants (0|-?[1-9][0-9]*)("."[0-9]+)?([E|e][-+]?[0-9]+)?
 string_constants \"(\"\"|[^"])*\"
 single_line_cmt "//".*
 %x comment
