@@ -151,6 +151,9 @@ parser
 *.kt
 local_exe.sh
 **/output/
+**/jasm/
+**/Example/
 **/javaa/*
 javaa
 /compiler/compiler
+*.jasm
