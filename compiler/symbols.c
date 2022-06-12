@@ -5,6 +5,8 @@ symbol *create_sym(char *_n, int _type, value _v)
     temp->name = strdup(_n);
     temp->nptr = NULL;
     temp->pptr = NULL;
+    temp->symbol_type = -1;
+    temp->scope = -1;
     switch (_type)
     {
     case UI_VAL:
@@ -52,6 +54,14 @@ symbol *create_sym(char *_n, int _type, value _v)
     }
     return temp;
 }
+
+symbol *add_sym_type_scope(symbol *temp, int _sym_type, int _scope)
+{
+    temp->symbol_type = _sym_type;
+    temp->scope = _scope;
+    return temp;
+}
+
 symbol_table *create_tb()
 {
     symbol_table *temp = malloc(sizeof(symbol_table));
@@ -59,6 +69,7 @@ symbol_table *create_tb()
     temp->nptr = NULL;
     temp->pptr = NULL;
     temp->size = 0;
+    temp->index = 0;
     return temp;
 }
 /*Symbol Table*/
@@ -159,6 +170,39 @@ char *get_type_str(size_t _type)
     }
     return "";
 }
+
+char *get_scope(int _scope)
+{
+    switch (_scope)
+    {
+    case LOCAL:
+        return "LOCAL";
+        break;
+    case GLOBAL:
+        return "GLOBAL";
+        break;
+    default:
+        return "Pending";
+        break;
+    }
+}
+
+char *get_sym_type(int _type)
+{
+    switch (_type)
+    {
+    case VARIABLE:
+        return "VAR";
+        break;
+    case CONST:
+        return "CONST";
+        break;
+    default:
+        return "Pending";
+        break;
+    }
+}
+
 void print_tb(symbol_table tb, char *msg)
 {
     printf("\nSymbol Table: %s\n", msg);
@@ -169,19 +213,23 @@ void print_tb(symbol_table tb, char *msg)
         switch (temp_ptr->type)
         {
         case UI_VAL:
-            printf("%-12s|%-10s|%-16zu\n", temp_ptr->name, "SIZE_T", temp_ptr->v.sizet);
+            printf("%-12s|%-10s|%-16zu", temp_ptr->name, "SIZE_T", temp_ptr->v.sizet);
+            printf("|%-8s|%-8s\n", get_sym_type(temp_ptr->symbol_type), get_scope(temp_ptr->scope));
             temp_ptr = temp_ptr->nptr;
             break;
         case INT_VAL:
-            printf("%-12s|%-10s|%-16ld\n", temp_ptr->name, "INT", temp_ptr->v.int4);
+            printf("%-12s|%-10s|%-16ld", temp_ptr->name, "INT", temp_ptr->v.sizet);
+            printf("|%-8s|%-8s\n", get_sym_type(temp_ptr->symbol_type), get_scope(temp_ptr->scope));
             temp_ptr = temp_ptr->nptr;
             break;
         case FP_VAL:
-            printf("%-12s|%-10s|%-16lf\n", temp_ptr->name, "FLOAT", temp_ptr->v.fp);
+            printf("%-12s|%-10s|%-16lf", temp_ptr->name, "FLOAT", temp_ptr->v.fp);
+            printf("|%-8s|%-8s\n", get_sym_type(temp_ptr->symbol_type), get_scope(temp_ptr->scope));
             temp_ptr = temp_ptr->nptr;
             break;
         case STR_VAL:
-            printf("%-12s|%-10s|%-16s\n", temp_ptr->name, "STRING", temp_ptr->v.str);
+            printf("%-12s|%-10s|%-16s", temp_ptr->name, "STRING", temp_ptr->v.str);
+            printf("|%-8s|%-8s\n", get_sym_type(temp_ptr->symbol_type), get_scope(temp_ptr->scope));
             temp_ptr = temp_ptr->nptr;
             break;
         case CLASS_DEC:
@@ -189,7 +237,7 @@ void print_tb(symbol_table tb, char *msg)
             temp_ptr = temp_ptr->nptr;
             break;
         case FUNC_DEC:
-            printf("%-12s|%-10s|%-16s|%-5lu", temp_ptr->name, "FUNC", get_type_str(temp_ptr->v.sizet), temp_ptr->argn);
+            printf("%-12s|%-10s|%-16s|%-8lu", temp_ptr->name, "FUNC", get_type_str(temp_ptr->v.sizet), temp_ptr->argn);
             if (temp_ptr->argn > 0)
             {
                 printf("|");
@@ -307,4 +355,18 @@ void create_fun_arg_info(symbol *temp, symbol_table *arg_tb)
         temp->arg_name[i] = strdup(temp_ptr->name);
         temp_ptr = temp_ptr->nptr;
     }
+}
+
+void recover_table(symbol_table *tb, int len)
+{
+    int i = 0;
+    symbol *temp_ptr = tb->begin;
+    for (; i < len; i++)
+    {
+        if (i == len - 1)
+            temp_ptr->nptr = NULL;
+        else
+            temp_ptr = temp_ptr->nptr;
+    }
+    tb->size = len;
 }
