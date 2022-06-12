@@ -39,14 +39,20 @@ void init_arr(void *arr_ptr, int type, size_t len)
     }
 }
 
+/*Global variables*/
 stack *s;
 value val;
+int branch_num = 0;
+int loop_begin = 0;
+int tb_len;
+int tb_index;
+char *class_name;
+
 /* Temp symbol is not free. */
 /*Arg_tb is used for FUNC_ARG FUNC_ARGS FUNC_INV_ARG FUNC_INV_ARGS */
 symbol_table *arg_tb;
-    
-FILE * java_byte_code;
 
+FILE *java_byte_code;
 
 void yyerror(char *_s)
 {
@@ -69,17 +75,13 @@ void show_tb(char *msg)
     }
 }
 
-void write_file(const char *msg)
-{
-    fprintf(java_byte_code, "%s", msg);
-}
-
 char *get_type(int _type)
 {
     switch (_type)
     {
     case UI_VAL:
-        return "bool";
+        //bool -> int
+        return "int";
         break;
     case INT_VAL:
         return "int";
@@ -92,12 +94,280 @@ char *get_type(int _type)
         break;
     case VOID_TYPE:
         return "void";
-        break; 
+        break;
     default:
         return NULL;
     }
 }
 
+void var_dec(char *id_name, int _type, int _scope, int _init)
+{
+    switch (_type)
+    {
+    case UI_VAL:
+        if (_scope == GLOBAL)
+        {
+            if (_init)
+                val.sizet = 0;
+            insert(add_sym_type_scope(create_sym(id_name, UI_VAL, val), VARIABLE, _scope), top(*s));
+            fprintf(java_byte_code, "field static %s %s = %lu\n", get_type(_type), id_name, lookup(id_name, *top(*s))->v.sizet);
+        }
+        else if (_scope == LOCAL)
+        {
+            val.sizet = (top(*s)->index)++;
+            insert(add_sym_type_scope(create_sym(id_name, UI_VAL, val), VARIABLE, _scope), top(*s));
+            if (_init)
+                fprintf(java_byte_code, "sipush %d\n", 0);
+            fprintf(java_byte_code, "istore %ld\n", lookup(id_name, *top(*s))->v.sizet);
+        }
+        break;
+    case INT_VAL:
+        if (_scope == GLOBAL)
+        {
+            if (_init)
+                val.int4 = 0;
+            insert(add_sym_type_scope(create_sym(id_name, INT_VAL, val), VARIABLE, _scope), top(*s));
+            fprintf(java_byte_code, "field static %s %s = %ld\n", get_type(_type), id_name, lookup(id_name, *top(*s))->v.int4);
+        }
+        else if (_scope == LOCAL)
+        {
+            val.int4 = (top(*s)->index)++;
+            insert(add_sym_type_scope(create_sym(id_name, INT_VAL, val), VARIABLE, _scope), top(*s));
+            if (_init)
+                fprintf(java_byte_code, "sipush %d\n", 0);
+            fprintf(java_byte_code, "istore %ld\n", lookup(id_name, *top(*s))->v.int4);
+        }
+        break;
+    case FP_VAL:
+        if (_scope == GLOBAL)
+        {
+            if (_init)
+                val.fp = 0.0;
+            insert(add_sym_type_scope(create_sym(id_name, FP_VAL, val), VARIABLE, _scope), top(*s));
+            fprintf(java_byte_code, "field static %s %s = %lf\n", get_type(_type), id_name, lookup(id_name, *top(*s))->v.fp);
+        }
+        else if (_scope == LOCAL)
+        {
+            val.fp = (top(*s)->index)++;
+            insert(add_sym_type_scope(create_sym(id_name, FP_VAL, val), VARIABLE, _scope), top(*s));
+            if (_init)
+                fprintf(java_byte_code, "xx fp sipush %lf\n", 0.0);
+            fprintf(java_byte_code, "fp var dec bc %.0lf\n", lookup(id_name, *top(*s))->v.fp);
+        }
+        break;
+    case STR_VAL:
+        if (_scope == GLOBAL)
+        {
+            if (_init)
+                val.str = strdup("");
+            insert(add_sym_type_scope(create_sym(id_name, STR_VAL, val), VARIABLE, _scope), top(*s));
+            fprintf(java_byte_code, "field static %s %s = %s string is unsupported!\n", get_type(_type), id_name, lookup(id_name, *top(*s))->v.str);
+        }
+        else if (_scope == LOCAL)
+        {
+            val.str = (char *)malloc(1024 * sizeof(char));
+            sprintf(val.str, "%d", (top(*s)->index)++);
+            insert(add_sym_type_scope(create_sym(id_name, STR_VAL, val), VARIABLE, _scope), top(*s));
+            if (_init)
+                fprintf(java_byte_code, "xx st sipush %s\n", "");
+            fprintf(java_byte_code, "st var dec bc %s\n", lookup(id_name, *top(*s))->v.str);
+        }
+        break;
+    default:
+        yyerror("Invaild declaration");
+        break;
+    }
+}
+
+void exp_id(symbol *id_val)
+{
+    switch (id_val->symbol_type)
+    {
+    case VARIABLE:
+        switch (id_val->scope)
+        {
+        case LOCAL:
+            switch (id_val->type)
+            {
+            case UI_VAL:
+                fprintf(java_byte_code, "iload %lu\n", id_val->v.sizet);
+                break;
+            case INT_VAL:
+                fprintf(java_byte_code, "iload %ld\n", id_val->v.int4);
+                break;
+            case FP_VAL:
+                fprintf(java_byte_code, "float var unsupported %lf\n", id_val->v.fp);
+                break;
+            case STR_VAL:
+                fprintf(java_byte_code, "str var unsupported %s\n", id_val->v.str);
+                break;
+            default:
+                yyerror("ID Type error!");
+                break;
+            }
+            break;
+        case GLOBAL:
+            fprintf(java_byte_code, "getstatic %s %s.%s\n", get_type(id_val->type), class_name, id_val->name);
+            break;
+        default:
+            yyerror("ID scope error!");
+            break;
+        }
+        break;
+    case CONST:
+        switch (id_val->type)
+        {
+        case UI_VAL:
+            fprintf(java_byte_code, "sipsuh %lu\n", id_val->v.sizet);
+            break;
+        case INT_VAL:
+            fprintf(java_byte_code, "sipush %ld\n", id_val->v.int4);
+            break;
+        case FP_VAL:
+            fprintf(java_byte_code, "sipush %lf fp is unsupported\n", id_val->v.fp);
+            break;
+        case STR_VAL:
+            fprintf(java_byte_code, "ldc %s\n", id_val->v.str);
+            break;
+        default:
+            yyerror("ID Type error!");
+            break;
+        }
+        break;
+    default:
+        yyerror("ID Type error!");
+        break;
+    }
+}
+
+void print_cmp_op(int op)
+{
+    fprintf(java_byte_code, "isub\n");
+    switch (op)
+    {
+    case L_E:
+        fprintf(java_byte_code, "ifle L%d\n", branch_num);
+        break;
+    case G_E:
+        fprintf(java_byte_code, "ifge L%d\n", branch_num);
+        break;
+    case E_Q:
+        fprintf(java_byte_code, "ifeq L%d\n", branch_num);
+        break;
+    case N_E:
+        fprintf(java_byte_code, "ifne L%d\n", branch_num);
+        break;
+    case G:
+        fprintf(java_byte_code, "ifgt L%d\n", branch_num);
+        break;
+    case L:
+        fprintf(java_byte_code, "iflt L%d\n", branch_num);
+        break;
+    default:
+        yyerror("Boolean operator error!");
+    }
+    fprintf(java_byte_code, "iconst_0\n");
+    fprintf(java_byte_code, "goto L%d\n", branch_num + 1);
+    fprintf(java_byte_code, "L%d: iconst_1\n", branch_num++);
+    fprintf(java_byte_code, "L%d:\n", branch_num++);
+}
+
+void id_assign(symbol *id_val)
+{
+    if (id_val->symbol_type == CONST)
+    {
+        yyerror("Constant assin not alllowed!");
+    }
+    else if (id_val->symbol_type == VARIABLE)
+    {
+        if (id_val->scope == GLOBAL)
+        {
+            fprintf(java_byte_code, "putstatic %s %s.%s\n", get_type(id_val->type), class_name, id_val->name);
+        }
+        else if (id_val->scope == LOCAL)
+        {
+            switch (id_val->type)
+            {
+            case UI_VAL:
+                fprintf(java_byte_code, "istore %lu\n", id_val->v.sizet);
+                break;
+            case INT_VAL:
+                fprintf(java_byte_code, "istore %ld\n", id_val->v.int4);
+                break;
+            case FP_VAL:
+                fprintf(java_byte_code, "istore %lf\n fp is not supported", id_val->v.fp);
+                break;
+            case STR_VAL:
+                fprintf(java_byte_code, "istore %s\n str is not supported", id_val->v.str);
+                break;
+            default:
+                yyerror("Invaild assign!");
+                break;
+            }
+        }
+    }
+}
+
+void jbc_print(int _type, int _new_line)
+{
+    char *nl;
+    nl = _new_line ? strdup("ln") : strdup("");
+    switch (_type)
+    {
+    case UI_VAL:
+        fprintf(java_byte_code, "invokevirtual void java.io.PrintStream.print%s(%s)\n", nl, get_type(_type));
+        break;
+    case INT_VAL:
+        fprintf(java_byte_code, "invokevirtual void java.io.PrintStream.print%s(%s)\n", nl, get_type(_type));
+        break;
+    case FP_VAL:
+        fprintf(java_byte_code, "invokevirtual void java.io.PrintStream.print%s(%s) fp is unsupported\n", nl, get_type(_type));
+        break;
+    case STR_VAL:
+        fprintf(java_byte_code, "invokevirtual void java.io.PrintStream.print%s(java.lang.String)\n", nl);
+        break;
+    default:
+        yyerror("Print type error!");
+        break;
+    }
+}
+
+void func_inv(symbol *id_val)
+{
+    /* arg type check and build initial table*/
+    if (id_val->argn == arg_tb->size)
+    {
+        symbol *temp_ptr = arg_tb->begin;
+        int i = 0;
+        for (; i < id_val->argn; i++)
+        {
+            if ((id_val->arg_type)[i] != temp_ptr->type)
+            {
+                yyerror("Argument type error!");
+            }
+            temp_ptr->name = strdup((id_val->arg_name)[i]);
+            temp_ptr = temp_ptr->nptr;
+        }
+    }
+    else
+    {
+        yyerror("Argument number not match!");
+    }
+    fprintf(java_byte_code, "invokestatic %s %s.%s(", get_type(id_val->v.sizet), class_name, id_val->name);
+    int i = 0;
+    for (; i < id_val->argn; i++)
+    {
+        if (i == arg_tb->size - 1)
+        {
+            fprintf(java_byte_code, "%s", get_type(id_val->arg_type[i]));
+        }
+        else
+        {
+            fprintf(java_byte_code, "%s, ", get_type(id_val->arg_type[i]));
+        }
+    }
+    fprintf(java_byte_code, ")\n");
+}
 %}
 %locations
 
@@ -130,7 +400,7 @@ char *get_type(int _type)
 %left '*' '/'
 %nonassoc UNARY_OP
 %type<int4> TYPE FUN_RE_TYPE
-%type<sym> EXP CONS TERM
+%type<sym> EXP GLOBAL_CONS CONS TERM 
 
 %%
 PROGRAM: 
@@ -149,7 +419,8 @@ PROGRAM:
 CLASS_UNIT: CLASS ID 
     {
         val.sizet= VOID_TYPE;
-        insert(create_sym($2, CLASS_DEC, val), top(*s));      
+        insert(create_sym($2, CLASS_DEC, val), top(*s));
+        class_name = strdup($2);
     } 
     '{' 
     { 
@@ -199,12 +470,23 @@ FUN_UNIT: FUN ID '('
             temp->argn = arg_tb->size;
             insert(temp, top(*s));
             push(arg_tb, s);
-            arg_tb = NULL;
 
-            fprintf(java_byte_code, "method public static %s %s", get_type($7), $2);
-            fprintf(java_byte_code, "()\n");
-            fprintf(java_byte_code, "max_stack 15\n");
+            fprintf(java_byte_code, "method public static %s %s(", get_type($7), $2);
+            for (i = 0; i < arg_tb->size; i++)
+            {
+                if (i == arg_tb->size - 1)
+                {
+                    fprintf(java_byte_code, "%s", get_type(temp->arg_type[i]));
+                }
+                else
+                {
+                    fprintf(java_byte_code, "%s, ", get_type(temp->arg_type[i]));
+                }
+            }
+            fprintf(java_byte_code, ")\nmax_stack 15\n");
             fprintf(java_byte_code, "max_locals 15\n{\n");
+
+            arg_tb = NULL;
         }
         else
         {
@@ -236,7 +518,7 @@ FUN_UNIT: FUN ID '('
             arg_tb = NULL;
 
             fprintf(java_byte_code, "method public static %s %s", get_type($6), "main");
-            fprintf(java_byte_code, "()\n");
+            fprintf(java_byte_code, "(java.lang.String[])\n");
             fprintf(java_byte_code, "max_stack 15\n");
             fprintf(java_byte_code, "max_locals 15\n{\n");
         }
@@ -263,20 +545,21 @@ FUNC_ARG:
             switch ($3)
             {
             case UI_VAL:
-                val.sizet = 0;
-                insert(create_sym($1, UI_VAL, val), arg_tb);
+                val.sizet = (arg_tb->index)++;
+                insert(add_sym_type_scope(create_sym($1, UI_VAL, val), VARIABLE, LOCAL), arg_tb);
                 break;
             case INT_VAL:
-                val.int4 = 0;
-                insert(create_sym($1, INT_VAL, val), arg_tb);
+                val.int4 = (arg_tb->index)++;
+                insert(add_sym_type_scope(create_sym($1, INT_VAL, val), VARIABLE, LOCAL), arg_tb);
                 break;
             case FP_VAL:
-                val.fp = 0.0;
-                insert(create_sym($1, FP_VAL, val), arg_tb);
+                val.fp = (arg_tb->index)++;
+                insert(add_sym_type_scope(create_sym($1, FP_VAL, val), VARIABLE, LOCAL), arg_tb);
                 break;
             case STR_VAL:
-                val.str = strdup("");
-                insert(create_sym($1, STR_VAL, val), arg_tb);
+                val.str = (char *)malloc(1024 * sizeof(char));
+                sprintf(val.str, "%d", (arg_tb->index)++);
+                insert(add_sym_type_scope(create_sym($1, STR_VAL, val), VARIABLE, LOCAL), arg_tb);
                 break;
             default:
                 yyerror("Argument type error!");
@@ -298,20 +581,21 @@ FUNC_ARGS:
             switch ($4)
             {
             case UI_VAL:
-                val.sizet = 0;
-                insert(create_sym($2, UI_VAL, val), arg_tb);
+                val.sizet = (arg_tb->index)++;
+                insert(add_sym_type_scope(create_sym($2, UI_VAL, val), VARIABLE, LOCAL), arg_tb);
                 break;
             case INT_VAL:
-                val.int4 = 0;
-                insert(create_sym($2, INT_VAL, val), arg_tb);
+                val.int4 = (arg_tb->index)++;
+                insert(add_sym_type_scope(create_sym($2, INT_VAL, val), VARIABLE, LOCAL), arg_tb);
                 break;
             case FP_VAL:
-                val.fp = 0.0;
-                insert(create_sym($2, FP_VAL, val), arg_tb);
+                val.fp = (arg_tb->index)++;
+                insert(add_sym_type_scope(create_sym($2, FP_VAL, val), VARIABLE, LOCAL), arg_tb);
                 break;
             case STR_VAL:
-                val.str = strdup("");
-                insert(create_sym($2, STR_VAL, val), arg_tb);
+                val.str = (char *)malloc(1024 * sizeof(char));
+                sprintf(val.str, "%d", (arg_tb->index)++);
+                insert(add_sym_type_scope(create_sym($2, STR_VAL, val), VARIABLE, LOCAL), arg_tb);
                 break;
             default:
                 yyerror("Argument type error!");
@@ -343,32 +627,23 @@ FUNC_BODY:
 /*2.3*/
 STATEMENT: ID '=' EXP 
     { 
-        symbol *id_val = search_id($1, *s);
+        symbol *id_val = lookup($1, *top(*s));
         if (id_val == NULL)
         {
-            yyerror("Use undefined ID!");
+            id_val = search_id($1, *s);
+            if (id_val == NULL || id_val->scope != GLOBAL)
+                yyerror("Use undefined ID or Scope Error!");
+            if (id_val->type == $3->type)
+                id_assign(id_val);
+            else
+                yyerror("Assign type error!");
         }
         else
         {
             if (id_val->type == $3->type)
-            {
-                switch (id_val->type)
-                {
-                case UI_VAL:   
-                case INT_VAL:
-                case FP_VAL:
-                case STR_VAL:
-                    id_val->v = $3->v;
-                    break;
-                default:
-                    yyerror("Invaild assign!");
-                    break;
-                }
-            }
+                id_assign(id_val);
             else
-            {
-                yyerror("Assign type error!");
-            }
+                yyerror("Assign type error!");  
         }
     }
     |ID '[' EXP ']' '=' EXP
@@ -407,61 +682,37 @@ STATEMENT: ID '=' EXP
             }
         }
     }
-    |PRINT '(' EXP ')'
+    |PRINT
     {
-        switch ($3->type)
-        {
-        case UI_VAL:   
-        case INT_VAL:
-        case FP_VAL:
-        case STR_VAL:
-            break;
-        default:
-            yyerror("Print type error!");
-            break;
-        }
+        fprintf(java_byte_code, "getstatic java.io.PrintStream java.lang.System.out\n");
     }
-    |PRINT EXP
+    '(' EXP ')'
     {
-        switch ($2->type)
-        {
-        case UI_VAL:   
-        case INT_VAL:
-        case FP_VAL:
-        case STR_VAL:
-            break;
-        default:
-            yyerror("Print type error!");
-            break;
-        }
+        jbc_print($4->type, 0);
     }
-    |PRINTLN '(' EXP ')'
+    |PRINT 
     {
-        switch ($3->type)
-        {
-        case UI_VAL:   
-        case INT_VAL:
-        case FP_VAL:
-        case STR_VAL:
-            break;
-        default:
-            yyerror("Println type error!");
-            break;
-        }
+        fprintf(java_byte_code, "getstatic java.io.PrintStream java.lang.System.out\n");
     }
-    |PRINTLN EXP
+    EXP
     {
-        switch ($2->type)
-        {
-        case UI_VAL:   
-        case INT_VAL:
-        case FP_VAL:
-        case STR_VAL:
-            break;
-        default:
-            yyerror("Return type error!");
-            break;
-        }
+        jbc_print($3->type, 0);
+    }
+    |PRINTLN 
+    {
+        fprintf(java_byte_code, "getstatic java.io.PrintStream java.lang.System.out\n");
+    }
+    '(' EXP ')'
+    {
+        jbc_print($4->type, 1);
+    }
+    |PRINTLN
+    {
+        fprintf(java_byte_code, "getstatic java.io.PrintStream java.lang.System.out\n");
+    }
+    EXP
+    {
+        jbc_print($3->type, 1);
     }
     |READ ID
     {
@@ -487,16 +738,23 @@ STATEMENT: ID '=' EXP
     }
     |RETURN
     {
-        // Javabyte
+        fprintf(java_byte_code, "return\n");
     }
     |RETURN EXP
     {
         switch ($2->type)
         {
-        case UI_VAL:   
+        case UI_VAL:
+            fprintf(java_byte_code, "ireturn\n");
+            break;
         case INT_VAL:
+            fprintf(java_byte_code, "ireturn\n");
+            break;
         case FP_VAL:
+            fprintf(java_byte_code, "ireturn\n float is unsupported");
+            break;
         case STR_VAL:
+            fprintf(java_byte_code, "ireturn\n str is unsupported");
             break;
         default:
             yyerror("Print type error!");
@@ -505,6 +763,31 @@ STATEMENT: ID '=' EXP
     }
     |COND_STATEMENT
     |LOOP_STATEMENT
+    |ID '(' 
+    {
+        arg_tb = create_tb();
+    }
+    FUNC_INV_ARG ')'
+    {
+        symbol *id_val = search_id($1, *s);
+        if (id_val == NULL)
+        {
+            yyerror("Use undefined FUNC ID!");
+        }
+        else if (id_val->type == FUNC_DEC)
+        {
+            if (id_val->v.sizet != VOID_TYPE)
+            {
+                yyerror("No catch for non void function!");
+            }
+            func_inv(id_val);
+        }
+        else
+        {
+            yyerror("Invalid function invocation!");
+        }
+        arg_tb = NULL;
+    }
 ;
 
 /*2.1*/
@@ -512,7 +795,9 @@ STATEMENT: ID '=' EXP
 not handle if id name is equal to fun or class name!!! 
 only check duplicate declaration in same scope
 */
-GLOBAL_CONS_DECLARATION: VAL ID '=' EXP 
+
+/*==================GLOBAL==================*/
+GLOBAL_CONS_DECLARATION: VAL ID '=' GLOBAL_CONS
     {
         if (lookup($2, *top(*s)) == NULL)
         {
@@ -535,7 +820,7 @@ GLOBAL_CONS_DECLARATION: VAL ID '=' EXP
             yyerror("Duplicate declaration!");
         }  
     }
-    |VAL ID ':' TYPE '=' EXP
+    |VAL ID ':' TYPE '=' GLOBAL_CONS
     {
         if (lookup($2, *top(*s)) == NULL)
         {
@@ -557,94 +842,37 @@ GLOBAL_CONS_DECLARATION: VAL ID '=' EXP
 GLOBAL_VAR_DECLARATION: VAR ID
     {
         if (lookup($2, *top(*s)) == NULL)
-        {
-            val.int4 = 0;
-            symbol *temp = create_sym($2, INT_VAL, val);
-            insert(add_sym_type_scope(temp, VARIABLE, GLOBAL), top(*s));
-
-            fprintf(java_byte_code, "field static %s %s\n", get_type(temp->type), $2);
-        }
+            var_dec($2, INT_VAL, GLOBAL, 1);
         else
-        {
             yyerror("Duplicate declaration!");
-        }
     }
     |VAR ID ':' TYPE
     {
         if (lookup($2, *top(*s)) == NULL)
-        {
-            switch ($4)
-            {
-            case UI_VAL:   
-                val.sizet = 0;
-                insert(add_sym_type_scope(create_sym($2, UI_VAL, val), VARIABLE, GLOBAL), top(*s));
-
-                fprintf(java_byte_code, "field static %s %s\n", "bool", $2);
-                break;
-            case INT_VAL:
-                val.int4 = 0;
-                insert(add_sym_type_scope(create_sym($2, INT_VAL, val), VARIABLE, GLOBAL), top(*s));
-
-                fprintf(java_byte_code, "field static %s %s\n", "int", $2);
-                break;
-            case FP_VAL:
-                val.fp = 0.0;
-                insert(add_sym_type_scope(create_sym($2, FP_VAL, val), VARIABLE, GLOBAL), top(*s));
-
-                fprintf(java_byte_code, "field static %s %s\n", "float", $2);
-                break;
-            case STR_VAL:
-                val.str = strdup("");
-                insert(add_sym_type_scope(create_sym($2, STR_VAL, val), VARIABLE, GLOBAL), top(*s));
-
-                fprintf(java_byte_code, "field static %s %s\n", "string", $2);
-                break;
-            default:
-                break;
-            }
-        }
+            var_dec($2, $4, GLOBAL, 1);
         else
-        {
             yyerror("Duplicate declaration!");
-        }
     }
-    |VAR ID '=' EXP
+    |VAR ID '=' GLOBAL_CONS
     {
         if (lookup($2, *top(*s)) == NULL)
         {
-            switch ($4->type)
-            {
-            case UI_VAL:   
-            case INT_VAL:
-            case FP_VAL:
-            case STR_VAL:
-                $4->name = strdup($2);
-                insert(add_sym_type_scope($4, VARIABLE, GLOBAL), top(*s));
-
-                fprintf(java_byte_code, "field static %s %s\n", get_type($4->type), $2);
-                break;
-            default:
-                yyerror("Invaild declaration");
-                break;
-            }
+            val = $4->v;
+            var_dec($2, $4->type, GLOBAL, 0);
         }
         else
         {
             yyerror("Duplicate declaration!");
         }
     }
-    |VAR ID ':' TYPE '=' EXP
+    |VAR ID ':' TYPE '=' GLOBAL_CONS
     {
         if (lookup($2, *top(*s)) == NULL)
         {
             if ($4 != $6->type)
-            {
                 yyerror("Declaration type error!");
-            }
-            $6->name = strdup($2);
-            insert(add_sym_type_scope($6, VARIABLE, GLOBAL), top(*s)); 
-
-            fprintf(java_byte_code, "field static %s %s\n", get_type($6->type), $2);
+            val = $6->v;
+            var_dec($2, $6->type, GLOBAL, 0);
         }
         else
         {
@@ -653,6 +881,7 @@ GLOBAL_VAR_DECLARATION: VAR ID
     }
 ;
 
+/*==================LOCAL==================*/
 CONS_DECLARATION: VAL ID '=' EXP 
     {
         if (lookup($2, *top(*s)) == NULL)
@@ -664,7 +893,7 @@ CONS_DECLARATION: VAL ID '=' EXP
             case FP_VAL:
             case STR_VAL:
                 $4->name = strdup($2);
-                insert($4, top(*s));
+                insert(add_sym_type_scope($4, CONST, LOCAL), top(*s));
                 break;
             default:
                 yyerror("Invaild declaration");
@@ -685,7 +914,7 @@ CONS_DECLARATION: VAL ID '=' EXP
                 yyerror("Declaration type error!");
             }
             $6->name = strdup($2);
-            insert($6, top(*s)); 
+            insert(add_sym_type_scope($6, CONST, LOCAL), top(*s));
         }
         else
         {
@@ -698,84 +927,34 @@ CONS_DECLARATION: VAL ID '=' EXP
 VAR_DECLARATION: VAR ID
     {
         if (lookup($2, *top(*s)) == NULL)
-        {
-            val.int4 = 0;
-            insert(create_sym($2, INT_VAL, val), top(*s));
-        }
+            var_dec($2, INT_VAL, LOCAL, 1);
         else
-        {
             yyerror("Duplicate declaration!");
-        }
     }
     |VAR ID ':' TYPE
     {
         if (lookup($2, *top(*s)) == NULL)
-        {
-            switch ($4)
-            {
-            case UI_VAL:   
-                val.sizet = 0;
-                insert(create_sym($2, UI_VAL, val), top(*s));
-                break;
-            case INT_VAL:
-                val.int4 = 0;
-                insert(create_sym($2, INT_VAL, val), top(*s));
-                break;
-            case FP_VAL:
-                val.fp = 0.0;
-                insert(create_sym($2, FP_VAL, val), top(*s));
-                break;
-            case STR_VAL:
-                val.str = strdup("");
-                insert(create_sym($2, STR_VAL, val), top(*s));
-                break;
-            default:
-                break;
-            }
-        }
+            var_dec($2, $4, LOCAL, 1);
         else
-        {
             yyerror("Duplicate declaration!");
-        }
     }
     |VAR ID '=' EXP
     {
         if (lookup($2, *top(*s)) == NULL)
-        {
-            switch ($4->type)
-            {
-            case UI_VAL:   
-            case INT_VAL:
-            case FP_VAL:
-            case STR_VAL:
-                $4->name = strdup($2);
-                insert($4, top(*s));
-                break;
-            default:
-                yyerror("Invaild declaration");
-                break;
-            }
-        }
+            var_dec($2, $4->type, LOCAL, 0);
         else
-        {
             yyerror("Duplicate declaration!");
-        }
     }
     |VAR ID ':' TYPE '=' EXP
     {
         if (lookup($2, *top(*s)) == NULL)
         {
             if ($4 != $6->type)
-            {
-                yyerror("Declaration type error!");
-            }
-            $6->name = strdup($2);
-            insert($6, top(*s)); 
+                yyerror("Declaration type not match!");
+            var_dec($2, $6->type, LOCAL, 0);
         }
         else
-        {
-            yyerror("Duplicate declaration!");
-        }   
+            yyerror("Duplicate declaration!"); 
     }
 ;
 /* Warrning: Warning: Array declaration have no range protection. */
@@ -819,6 +998,9 @@ EXP: EXP '*' EXP
             switch ($1->type)
             {
             case INT_VAL:
+                fprintf(java_byte_code, "imul\n");
+                $$ = create_sym("temp", $1->type, $1->v);
+                break;
             case FP_VAL:
                 $$ = create_sym("temp", $1->type, $1->v);
                 break;
@@ -837,6 +1019,9 @@ EXP: EXP '*' EXP
             switch ($1->type)
             {
             case INT_VAL:
+                fprintf(java_byte_code, "idiv\n");
+                $$ = create_sym("temp", $1->type, $1->v);
+                break;
             case FP_VAL:
                 $$ = create_sym("temp", $1->type, $1->v);
                 break;
@@ -855,6 +1040,9 @@ EXP: EXP '*' EXP
             switch ($1->type)
             {
             case INT_VAL:
+                fprintf(java_byte_code, "iadd\n");
+                $$ = create_sym("temp", $1->type, $1->v);
+                break;
             case FP_VAL:
                 $$ = create_sym("temp", $1->type, $1->v);
                 break;
@@ -873,6 +1061,9 @@ EXP: EXP '*' EXP
             switch ($1->type)
             {
             case INT_VAL:
+                fprintf(java_byte_code, "isub\n");
+                $$ = create_sym("temp", $1->type, $1->v);
+                break;
             case FP_VAL:
                 $$ = create_sym("temp", $1->type, $1->v);
                 break;
@@ -891,6 +1082,10 @@ EXP: EXP '*' EXP
             switch ($1->type)
             {
             case INT_VAL:
+                print_cmp_op(L_E);
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
             case FP_VAL:
                 // Boolean exp return ture
                 val.sizet = 1;
@@ -911,6 +1106,10 @@ EXP: EXP '*' EXP
             switch ($1->type)
             {
             case INT_VAL:
+                print_cmp_op(G_E);
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
             case FP_VAL:
                 // Boolean exp return ture
                 val.sizet = 1;
@@ -931,6 +1130,10 @@ EXP: EXP '*' EXP
             switch ($1->type)
             {
             case INT_VAL:
+                print_cmp_op(E_Q);
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
             case FP_VAL:
                 // Boolean exp return ture
                 val.sizet = 1;
@@ -951,6 +1154,10 @@ EXP: EXP '*' EXP
             switch ($1->type)
             {
             case INT_VAL:
+                print_cmp_op(N_E);
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
             case FP_VAL:
                 // Boolean exp return ture
                 val.sizet = 1;
@@ -971,6 +1178,10 @@ EXP: EXP '*' EXP
             switch ($1->type)
             {
             case INT_VAL:
+                print_cmp_op(G);
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
             case FP_VAL:
                 // Boolean exp return ture
                 val.sizet = 1;
@@ -991,6 +1202,10 @@ EXP: EXP '*' EXP
             switch ($1->type)
             {
             case INT_VAL:
+                print_cmp_op(L);
+                val.sizet = 1;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
             case FP_VAL:
                 // Boolean exp return ture
                 val.sizet = 1;
@@ -1012,6 +1227,7 @@ EXP: EXP '*' EXP
             {
             case UI_VAL:
                 // Boolean exp return ture
+                fprintf(java_byte_code, "ixor\n");
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
@@ -1031,6 +1247,7 @@ EXP: EXP '*' EXP
             {
             case UI_VAL:
                 // Boolean exp return ture
+                fprintf(java_byte_code, "iand\n");
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
                 break;
@@ -1049,6 +1266,7 @@ EXP: EXP '*' EXP
             switch ($1->type)
             {
             case UI_VAL:
+                fprintf(java_byte_code, "ior\n");
                 // Boolean exp return ture
                 val.sizet = 1;
                 $$ = create_sym("temp", UI_VAL, val);
@@ -1071,12 +1289,12 @@ TERM: '-' TERM %prec UNARY_OP
         switch ($2->type)
         {
         case INT_VAL:
-            val.int4 = -$2->v.int4;
-            $$ = create_sym("temp", INT_VAL, val);
+            fprintf(java_byte_code, "ineg\n");
+            $$ = create_sym("temp", INT_VAL, $2->v);
             break;
         case FP_VAL:
-            val.fp = -$2->v.fp;
-            $$ = create_sym("temp", FP_VAL, val);
+            fprintf(java_byte_code, "ineg fp is unsupported!\n");
+            $$ = create_sym("temp", FP_VAL, $2->v);
             break;
         default:
             yyerror("Invalid type for unary minus!");
@@ -1085,14 +1303,20 @@ TERM: '-' TERM %prec UNARY_OP
     } 
     |ID
     {
-        symbol *id_val = search_id($1, *s);
+        symbol *id_val = lookup($1, *top(*s));
         if (id_val == NULL)
         {
-            yyerror("Use undefined ID!");
+            // Search global
+            id_val = search_id($1, *s);
+            if (id_val == NULL || id_val->scope != GLOBAL)
+                yyerror("Use undefined ID or Scope Error!");
+            $$ = create_sym(id_val->name, id_val->type, id_val->v);
+            exp_id(id_val);
         }
         else
         {
             $$ = create_sym(id_val->name, id_val->type, id_val->v);
+            exp_id(id_val);
         }
     }
     |CONS
@@ -1146,66 +1370,38 @@ TERM: '-' TERM %prec UNARY_OP
         symbol *id_val = search_id($1, *s);
         if (id_val == NULL)
         {
-            yyerror("Use undefined ID!");
+            yyerror("Use undefined FUNC ID!");
+        }
+        else if (id_val->type == FUNC_DEC)
+        {
+            func_inv(id_val);
+            /*return type*/
+            switch (id_val->v.sizet)
+            {
+            case UI_VAL:
+                val.sizet = 0;
+                $$ = create_sym("temp", UI_VAL, val);
+                break;
+            case INT_VAL:
+                val.int4 = 0;
+                $$ = create_sym("temp", INT_VAL, val);
+                break;
+            case FP_VAL:
+                val.fp = 0.0;
+                $$ = create_sym("temp", FP_VAL, val);
+                break;
+            case STR_VAL:
+                val.str = strdup("Fun_return");
+                $$ = create_sym("temp", STR_VAL, val);
+                break;
+            default:
+                yyerror("Function return type error!");
+                break;
+            }
         }
         else
         {
-            if (id_val->type == FUNC_DEC)
-            {
-                /* arg type check and build initial table*/
-                if (id_val->argn == arg_tb->size)
-                {
-                    symbol *temp_ptr = arg_tb->begin;
-                    int i = 0;
-                    for (; i < id_val->argn; i++)
-                    {
-                        if ((id_val->arg_type)[i] != temp_ptr->type)
-                        {
-                            yyerror("Argument type error!");
-                        }
-                        free(temp_ptr->arg_name);
-                        temp_ptr->name = strdup((id_val->arg_name)[i]);
-                        temp_ptr = temp_ptr->nptr;
-                    }    
-                }
-                else
-                {
-                    yyerror("Argument number not match!");
-                }
-
-                char *temp = malloc(sizeof(char) * (strlen($1) + 20));
-                strcpy(temp, "Call function ");
-                print_tb(*(arg_tb), strcat(temp, $1));
-                free(temp);
-
-                /*return type*/
-                switch (id_val->v.sizet)
-                {
-                case UI_VAL:
-                    val.sizet = 1;
-                    $$ = create_sym("temp", UI_VAL, val);
-                    break;
-                case INT_VAL:
-                    val.int4 = -1;
-                    $$ = create_sym("temp", INT_VAL, val);
-                    break;
-                case FP_VAL:
-                    val.fp = 0.1;
-                    $$ = create_sym("temp", FP_VAL, val);
-                    break;
-                case STR_VAL:
-                    val.str = strdup("Fun_return");
-                    $$ = create_sym("temp", STR_VAL, val);
-                    break;
-                default:
-                    yyerror("Function return type error!");
-                    break;
-                }
-            }
-            else
-            {
-                yyerror("Invalid function invocation!");
-            }
+            yyerror("Invalid function invocation!");
         }
         arg_tb = NULL;
     }
@@ -1225,7 +1421,7 @@ FUNC_INV_ARGS:
     }
 ;
 
-CONS: INT_CONS
+GLOBAL_CONS: INT_CONS
     {
         val.int4 = $1;
         $$ = create_sym("temp", INT_VAL, val);
@@ -1242,6 +1438,31 @@ CONS: INT_CONS
     }
     |BOOL_CONS 
     {
+        val.sizet = $1;
+        $$ = create_sym("temp", UI_VAL, val);
+    }
+;
+
+CONS: INT_CONS
+    {
+        fprintf(java_byte_code, "sipush %ld\n", $1);
+        val.int4 = $1;
+        $$ = create_sym("temp", INT_VAL, val);
+    }
+    |STR_CONS
+    {
+        fprintf(java_byte_code, "ldc %s\n", $1);
+        val.str = strdup($1);
+        $$ = create_sym("temp", STR_VAL, val);
+    }
+    |REAL_CONS
+    {
+        val.fp = $1;
+        $$ = create_sym("temp", FP_VAL, val);
+    }
+    |BOOL_CONS 
+    {
+        fprintf(java_byte_code, "sipush %lu\n", $1);
         val.sizet = $1;
         $$ = create_sym("temp", UI_VAL, val);
     }
@@ -1265,13 +1486,27 @@ TYPE: INT
     }
 ;
 
-COND_STATEMENT: IF '(' EXP ')' STATEMENT_BODY ELSE STATEMENT_BODY
+COND_STATEMENT: IF '(' EXP ')'
     {
         if ($3->type != UI_VAL)
         {
             yyerror("Expression type in if statement must be bool");
         }
+        fprintf(java_byte_code, "ifeq L%d\n", branch_num);
     }
+    STATEMENT_BODY 
+    {
+        fprintf(java_byte_code, "goto L%d\n", branch_num + 1);
+    }    
+    ELSE
+    {
+        fprintf(java_byte_code, "L%d:\n", branch_num++);
+    }
+    STATEMENT_BODY
+    {
+        fprintf(java_byte_code, "L%d:\n", branch_num++);
+    }
+    /*
     |IF '(' EXP ')' STATEMENT_BODY
     {
         if ($3->type != UI_VAL)
@@ -1279,17 +1514,30 @@ COND_STATEMENT: IF '(' EXP ')' STATEMENT_BODY ELSE STATEMENT_BODY
             yyerror("Expression type in if statement must be bool");
         }
     }
+    */
 ;
 
-LOOP_STATEMENT: WHILE '(' EXP ')' STATEMENT_BODY
+LOOP_STATEMENT: WHILE 
     {
-        if ($3->type != UI_VAL)
+        loop_begin = branch_num;
+        fprintf(java_byte_code, "L%d:\n", branch_num++);
+    }
+    '(' EXP ')' 
+    {
+        if ($4->type != UI_VAL)
         {
             yyerror("Expression type in while statement must be bool");
         }
+        fprintf(java_byte_code, "ifle L%d\n", branch_num);
     }
-    |FOR '(' ID IN INT_CONS BETWEEN INT_CONS ')' 
+    STATEMENT_BODY
     {
+        fprintf(java_byte_code, "goto L%d\n", loop_begin);
+        fprintf(java_byte_code, "L%d:\n", branch_num++);
+    }
+    |FOR '(' ID IN INT_CONS BETWEEN INT_CONS ')'
+    {
+        fprintf(java_byte_code, "\nsipush %ld\n", $5);
         symbol *id_val = search_id($3, *s);
         if (id_val == NULL)
         {
@@ -1299,7 +1547,29 @@ LOOP_STATEMENT: WHILE '(' EXP ')' STATEMENT_BODY
         {
             if (id_val->type == INT_VAL)
             {
-                id_val->v.int4 = $5;
+                if(id_val->scope == GLOBAL)
+                {
+                    fprintf(java_byte_code, "putstatic %s %s.%s\n", get_type(INT_VAL), class_name, $3);
+                    loop_begin = branch_num;
+                    fprintf(java_byte_code, "L%d:\n", branch_num++);
+                    fprintf(java_byte_code, "getstatic %s %s.%s\n", get_type(INT_VAL), class_name, $3);
+                    fprintf(java_byte_code, "sipush %ld\n", $7);
+                }
+                else if(id_val->scope == LOCAL)
+                {
+                    fprintf(java_byte_code, "istore %ld\n", id_val->v.int4);
+                    loop_begin = branch_num;
+                    fprintf(java_byte_code, "L%d:\n", branch_num++);
+                    fprintf(java_byte_code, "iload %ld\n", id_val->v.int4);
+                    fprintf(java_byte_code, "sipush %ld\n", $7);
+                }
+                fprintf(java_byte_code, "isub\n");
+                fprintf(java_byte_code, "iflt L%d\n", branch_num);
+                fprintf(java_byte_code, "iconst_0\n");
+                fprintf(java_byte_code, "goto L%d\n", branch_num + 1);
+                fprintf(java_byte_code, "L%d: iconst_1\n", branch_num++);
+                fprintf(java_byte_code, "L%d:\n", branch_num++);
+                fprintf(java_byte_code, "ifle L%d\n", branch_num);
             }
             else
             {
@@ -1308,17 +1578,38 @@ LOOP_STATEMENT: WHILE '(' EXP ')' STATEMENT_BODY
         }
     }
     STATEMENT_BODY
+    {
+        symbol *id_val = search_id($3, *s);
+        if(id_val->scope == GLOBAL)
+        {
+            fprintf(java_byte_code, "getstatic %s %s.%s\n", get_type(INT_VAL), class_name, $3);
+            fprintf(java_byte_code, "sipush 1\n");
+            fprintf(java_byte_code, "iadd \n");
+            fprintf(java_byte_code, "putstatic %s %s.%s\n", get_type(INT_VAL), class_name, $3);
+        }
+        else if(id_val->scope == LOCAL)
+        {
+            fprintf(java_byte_code, "iload %ld\n", id_val->v.int4);
+            fprintf(java_byte_code, "sipush 1\n");
+            fprintf(java_byte_code, "iadd \n");
+            fprintf(java_byte_code, "istore %ld\n", id_val->v.int4);
+        }
+        fprintf(java_byte_code, "goto L%d\n", loop_begin);
+        fprintf(java_byte_code, "L%d:\n", branch_num++);
+    }
 ;
 
 /*Statement body => function body or single staement */
 STATEMENT_BODY: '{' 
-    { 
-        push(create_tb(), s);
-    } 
+    {
+        tb_len = top(*s)->size;
+        tb_index = top(*s)->index;
+    }
     FUNC_BODY '}'
     {
         show_tb("End of staement");
-        pop(s);
+        recover_table(top(*s), tb_len);
+        top(*s)->index = tb_index;
     }
     |STATEMENT
 ;
@@ -1327,11 +1618,11 @@ STATEMENT_BODY: '{'
 int main(void)
 {
     s = create_stack();
-    java_byte_code = fopen ("output.jasm", "w");
+    java_byte_code = fopen("output.jasm", "w");
     while (yyparse())
     {
     }
     free(s);
-    fclose (java_byte_code);
+    fclose(java_byte_code);
     return 0;
 }
