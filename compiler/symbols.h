@@ -19,6 +19,18 @@ enum Type
     ARR_STR,
 };
 
+enum Scope
+{
+    LOCAL,
+    GLOBAL,
+};
+
+enum Symbol_type
+{
+    VARIABLE,
+    CONST,
+};
+
 typedef union v
 {
     size_t sizet;
@@ -32,7 +44,8 @@ typedef struct s
 {
     char *name;
     int type;
-    char *scope;
+    int symbol_type;
+    int scope;
     value v;
     size_t argn;
     int *arg_type;
@@ -40,7 +53,9 @@ typedef struct s
     struct s *pptr;
     struct s *nptr;
 } symbol;
+
 symbol *create_sym(char *_n, int _type, value _v);
+symbol *add_sym_type_scope(symbol *temp, int _sym_type, int _scope);
 
 typedef struct t
 {
@@ -49,6 +64,7 @@ typedef struct t
     symbol *begin;
     struct t *pptr;
     struct t *nptr;
+    int index;
 } symbol_table;
 
 symbol_table *create_tb();
@@ -70,4 +86,14 @@ symbol *search_id(char *_n, stack st);
 void print_stack(stack st);
 
 void create_fun_arg_info(symbol *temp, symbol_table *arg_tb);
+void recover_table(symbol_table *tb, int len);
+enum Cmp_op
+{
+    L_E,
+    G_E,
+    E_Q,
+    N_E,
+    G,
+    L,
+};
 #endif
