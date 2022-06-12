@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-prog_name=parser
+prog_name=compiler
 if [[ -n "$1" ]]
 then
-    cat $1| ./$prog_name >out.txt
+    cat $1| ./$prog_name >symbol_table.txt
+    ./javaa output.jasm
 else
-    cat input.kt| ./$prog_name >out.txt
+    cat Kotlin/input.kt| ./$prog_name >symbol_table.txt
+    ./javaa output.jasm
 fi
