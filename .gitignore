@@ -157,3 +157,4 @@ local_exe.sh
 javaa
 /compiler/compiler
 *.jasm
+*.class
