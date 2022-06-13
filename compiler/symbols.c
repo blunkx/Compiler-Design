@@ -359,6 +359,11 @@ void create_fun_arg_info(symbol *temp, symbol_table *arg_tb)
 
 void recover_table(symbol_table *tb, int len)
 {
+    if (len == 0)
+    {
+        tb->begin = NULL;
+        return;
+    }
     int i = 0;
     symbol *temp_ptr = tb->begin;
     for (; i < len; i++)
@@ -369,4 +374,87 @@ void recover_table(symbol_table *tb, int len)
             temp_ptr = temp_ptr->nptr;
     }
     tb->size = len;
+}
+
+void branch_restore()
+{
+    FILE *old_file;
+    FILE *output;
+    char mystring[1024];
+    int arr[1024];
+    int len = 0;
+    for (; len < 1024; len++)
+    {
+        arr[len] = -1;
+    }
+    int loop_index = 0;
+    old_file = fopen("output.jasm", "r");
+    if (old_file == NULL)
+        perror("Error opening file");
+    else
+    {
+        while (fgets(mystring, 1024, old_file) != NULL)
+        {
+            if (strstr(mystring, "end_point") != NULL)
+            {
+                int i;
+                int j;
+                sscanf(mystring, "%*s%d%*s%d", &i, &j);
+                printf("%d %d\n", i, j);
+                arr[i] = j;
+            }
+        }
+        fclose(old_file);
+    }
+    old_file = fopen("output.jasm", "r");
+    output = fopen("copy.txt", "w");
+    if (old_file == NULL || output == NULL)
+        perror("Error opening file");
+    else
+    {
+        while (fgets(mystring, 1024, old_file) != NULL)
+        {
+            fprintf(output, "%s", mystring);
+        }
+        fclose(output);
+        fclose(old_file);
+    }
+
+    old_file = fopen("copy.txt", "r");
+    output = fopen("output.jasm", "w");
+    if (old_file == NULL || output == NULL)
+        perror("Error opening file");
+    else
+    {
+        while (fgets(mystring, 1024, old_file) != NULL)
+        {
+            if (strstr(mystring, "loop_end_br") != NULL)
+            {
+                int i;
+                sscanf(mystring, "%*s%d", &i);
+                printf("%d\n", i);
+                if (arr[i] != -1)
+                {
+                    fprintf(output, "ifle L%d\n", arr[i]);
+                }
+                else
+                {
+                    fprintf(output, "%s", mystring);
+                }
+            }
+            else if (strstr(mystring, "end_point") != NULL)
+            {
+                int i;
+                int j;
+                sscanf(mystring, "%*s%d%*s%d", &i, &j);
+                fprintf(output, "L%d:\n", j);
+            }
+            else
+            {
+                fprintf(output, "%s", mystring);
+            }
+        }
+        fclose(old_file);
+        fclose(output);
+    }
 }
