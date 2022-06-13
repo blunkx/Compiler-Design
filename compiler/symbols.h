@@ -96,4 +96,5 @@ enum Cmp_op
     G,
     L,
 };
+void branch_restore();
 #endif
