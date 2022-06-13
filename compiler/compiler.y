@@ -43,7 +43,9 @@ void init_arr(void *arr_ptr, int type, size_t len)
 stack *s;
 value val;
 int branch_num = 0;
-int loop_begin = 0;
+int loop_begin[100];
+int loop_stack_len = 0;
+
 int tb_len;
 int tb_index;
 char *class_name;
@@ -142,17 +144,27 @@ void var_dec(char *id_name, int _type, int _scope, int _init)
         if (_scope == GLOBAL)
         {
             if (_init)
+            {
                 val.fp = 0.0;
-            insert(add_sym_type_scope(create_sym(id_name, FP_VAL, val), VARIABLE, _scope), top(*s));
-            fprintf(java_byte_code, "field static %s %s = %lf\n", get_type(_type), id_name, lookup(id_name, *top(*s))->v.fp);
+                fprintf(java_byte_code, "field static %s %s\n", get_type(_type), id_name);
+                insert(add_sym_type_scope(create_sym(id_name, FP_VAL, val), VARIABLE, _scope), top(*s));
+            }
+            else
+            {
+                yyerror("Not allow initial value for global float variable!");
+                insert(add_sym_type_scope(create_sym(id_name, FP_VAL, val), VARIABLE, _scope), top(*s));
+                fprintf(java_byte_code, "field static %s %s = %.1lf\n", get_type(_type), id_name, lookup(id_name, *top(*s))->v.fp);
+            }
         }
         else if (_scope == LOCAL)
         {
             val.fp = (top(*s)->index)++;
             insert(add_sym_type_scope(create_sym(id_name, FP_VAL, val), VARIABLE, _scope), top(*s));
             if (_init)
-                fprintf(java_byte_code, "xx fp sipush %lf\n", 0.0);
-            fprintf(java_byte_code, "fp var dec bc %.0lf\n", lookup(id_name, *top(*s))->v.fp);
+                fprintf(java_byte_code, "fconst_0\n");
+            else
+                yyerror("Not allow initial value for local float variable!");
+            fprintf(java_byte_code, "fstore %.0lf\n", lookup(id_name, *top(*s))->v.fp);
         }
         break;
     case STR_VAL:
@@ -196,7 +208,7 @@ void exp_id(symbol *id_val)
                 fprintf(java_byte_code, "iload %ld\n", id_val->v.int4);
                 break;
             case FP_VAL:
-                fprintf(java_byte_code, "float var unsupported %lf\n", id_val->v.fp);
+                fprintf(java_byte_code, "fload %.0lf\n", id_val->v.fp);
                 break;
             case STR_VAL:
                 fprintf(java_byte_code, "str var unsupported %s\n", id_val->v.str);
@@ -224,7 +236,8 @@ void exp_id(symbol *id_val)
             fprintf(java_byte_code, "sipush %ld\n", id_val->v.int4);
             break;
         case FP_VAL:
-            fprintf(java_byte_code, "sipush %lf fp is unsupported\n", id_val->v.fp);
+            fprintf(java_byte_code, "fconst_1\n");
+            // fprintf(java_byte_code, "fconst_1\n %lf fp is unsupported\n", id_val->v.fp);
             break;
         case STR_VAL:
             fprintf(java_byte_code, "ldc %s\n", id_val->v.str);
@@ -321,7 +334,7 @@ void jbc_print(int _type, int _new_line)
         fprintf(java_byte_code, "invokevirtual void java.io.PrintStream.print%s(%s)\n", nl, get_type(_type));
         break;
     case FP_VAL:
-        fprintf(java_byte_code, "invokevirtual void java.io.PrintStream.print%s(%s) fp is unsupported\n", nl, get_type(_type));
+        fprintf(java_byte_code, "invokevirtual void java.io.PrintStream.print%s(%s)\n", nl, get_type(_type));
         break;
     case STR_VAL:
         fprintf(java_byte_code, "invokevirtual void java.io.PrintStream.print%s(java.lang.String)\n", nl);
@@ -1293,7 +1306,7 @@ TERM: '-' TERM %prec UNARY_OP
             $$ = create_sym("temp", INT_VAL, $2->v);
             break;
         case FP_VAL:
-            fprintf(java_byte_code, "ineg fp is unsupported!\n");
+            fprintf(java_byte_code, "fneg\n");
             $$ = create_sym("temp", FP_VAL, $2->v);
             break;
         default:
@@ -1457,6 +1470,7 @@ CONS: INT_CONS
     }
     |REAL_CONS
     {
+        // fprintf(java_byte_code, "ldc %lf\n fp is unsupported!\n", $1);
         val.fp = $1;
         $$ = create_sym("temp", FP_VAL, val);
     }
@@ -1519,8 +1533,9 @@ COND_STATEMENT: IF '(' EXP ')'
 
 LOOP_STATEMENT: WHILE 
     {
-        loop_begin = branch_num;
-        fprintf(java_byte_code, "L%d:\n", branch_num++);
+        loop_begin[loop_stack_len] = branch_num;
+        loop_stack_len++;
+        fprintf(java_byte_code, "\n\nL%d:\n", branch_num++);
     }
     '(' EXP ')' 
     {
@@ -1528,12 +1543,19 @@ LOOP_STATEMENT: WHILE
         {
             yyerror("Expression type in while statement must be bool");
         }
-        fprintf(java_byte_code, "ifle L%d\n", branch_num);
+        // fprintf(java_byte_code, "ifle L%d\n", branch_num);
+        fprintf(java_byte_code, "loop_end_br %d\n", loop_stack_len);
     }
     STATEMENT_BODY
     {
-        fprintf(java_byte_code, "goto L%d\n", loop_begin);
-        fprintf(java_byte_code, "L%d:\n", branch_num++);
+        loop_stack_len--;
+        fprintf(java_byte_code, "goto L%d\n", loop_begin[loop_stack_len]);
+        fprintf(java_byte_code, "end_point %d L %d\n", loop_stack_len + 1, branch_num++);
+        // fprintf(java_byte_code, "L%d:\n\n", branch_num++);
+
+        fclose(java_byte_code);
+        branch_restore();
+        java_byte_code = fopen("output.jasm", "a+");
     }
     |FOR '(' ID IN INT_CONS BETWEEN INT_CONS ')'
     {
@@ -1550,7 +1572,8 @@ LOOP_STATEMENT: WHILE
                 if(id_val->scope == GLOBAL)
                 {
                     fprintf(java_byte_code, "putstatic %s %s.%s\n", get_type(INT_VAL), class_name, $3);
-                    loop_begin = branch_num;
+                    loop_begin[loop_stack_len] = branch_num;
+                    loop_stack_len++;
                     fprintf(java_byte_code, "L%d:\n", branch_num++);
                     fprintf(java_byte_code, "getstatic %s %s.%s\n", get_type(INT_VAL), class_name, $3);
                     fprintf(java_byte_code, "sipush %ld\n", $7);
@@ -1558,7 +1581,8 @@ LOOP_STATEMENT: WHILE
                 else if(id_val->scope == LOCAL)
                 {
                     fprintf(java_byte_code, "istore %ld\n", id_val->v.int4);
-                    loop_begin = branch_num;
+                    loop_begin[loop_stack_len] = branch_num;
+                    loop_stack_len++;
                     fprintf(java_byte_code, "L%d:\n", branch_num++);
                     fprintf(java_byte_code, "iload %ld\n", id_val->v.int4);
                     fprintf(java_byte_code, "sipush %ld\n", $7);
@@ -1569,7 +1593,8 @@ LOOP_STATEMENT: WHILE
                 fprintf(java_byte_code, "goto L%d\n", branch_num + 1);
                 fprintf(java_byte_code, "L%d: iconst_1\n", branch_num++);
                 fprintf(java_byte_code, "L%d:\n", branch_num++);
-                fprintf(java_byte_code, "ifle L%d\n", branch_num);
+                // fprintf(java_byte_code, "ifle L%d\n", branch_num);
+                fprintf(java_byte_code, "loop_end_br %d\n", loop_stack_len);
             }
             else
             {
@@ -1594,8 +1619,13 @@ LOOP_STATEMENT: WHILE
             fprintf(java_byte_code, "iadd \n");
             fprintf(java_byte_code, "istore %ld\n", id_val->v.int4);
         }
-        fprintf(java_byte_code, "goto L%d\n", loop_begin);
-        fprintf(java_byte_code, "L%d:\n", branch_num++);
+        loop_stack_len--;
+        fprintf(java_byte_code, "goto L%d\n", loop_begin[loop_stack_len]);
+        // fprintf(java_byte_code, "L%d:\n\n", branch_num++);
+        fprintf(java_byte_code, "end_point %d L %d\n", loop_stack_len + 1, branch_num++);
+        fclose(java_byte_code);
+        branch_restore();
+        java_byte_code = fopen("output.jasm", "a+");
     }
 ;
 
