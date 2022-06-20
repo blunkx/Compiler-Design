@@ -97,4 +97,5 @@ enum Cmp_op
     L,
 };
 void branch_restore();
+void index_reverse(symbol_table *arg_tb);
 #endif

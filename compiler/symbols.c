@@ -400,7 +400,6 @@ void branch_restore()
                 int i;
                 int j;
                 sscanf(mystring, "%*s%d%*s%d", &i, &j);
-                printf("%d %d\n", i, j);
                 arr[i] = j;
             }
         }
@@ -432,7 +431,6 @@ void branch_restore()
             {
                 int i;
                 sscanf(mystring, "%*s%d", &i);
-                printf("%d\n", i);
                 if (arr[i] != -1)
                 {
                     fprintf(output, "ifle L%d\n", arr[i]);
@@ -456,5 +454,31 @@ void branch_restore()
         }
         fclose(old_file);
         fclose(output);
+    }
+}
+
+void index_reverse(symbol_table *arg_tb)
+{
+    symbol *temp_ptr = arg_tb->begin;
+    while (temp_ptr != NULL)
+    {
+        switch (temp_ptr->type)
+        {
+        case UI_VAL:
+            temp_ptr->v.sizet = arg_tb->size - temp_ptr->v.sizet - 1;
+            temp_ptr = temp_ptr->nptr;
+            break;
+        case INT_VAL:
+            temp_ptr->v.int4 = arg_tb->size - temp_ptr->v.int4 - 1;
+            temp_ptr = temp_ptr->nptr;
+            break;
+        case FP_VAL:
+            temp_ptr->v.fp = arg_tb->size - temp_ptr->v.fp - 1;
+            temp_ptr = temp_ptr->nptr;
+            break;
+        case STR_VAL:
+            temp_ptr = temp_ptr->nptr;
+            break;
+        }
     }
 }
