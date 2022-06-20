@@ -351,8 +351,8 @@ void func_inv(symbol *id_val)
     if (id_val->argn == arg_tb->size)
     {
         symbol *temp_ptr = arg_tb->begin;
-        int i = 0;
-        for (; i < id_val->argn; i++)
+        int i = id_val->argn - 1;
+        for (; i >= 0 ; i--)
         {
             if ((id_val->arg_type)[i] != temp_ptr->type)
             {
@@ -367,10 +367,10 @@ void func_inv(symbol *id_val)
         yyerror("Argument number not match!");
     }
     fprintf(java_byte_code, "invokestatic %s %s.%s(", get_type(id_val->v.sizet), class_name, id_val->name);
-    int i = 0;
-    for (; i < id_val->argn; i++)
+    int i = id_val->argn - 1;
+    for (; i >= 0 ; i--)
     {
-        if (i == arg_tb->size - 1)
+        if (i == 0)
         {
             fprintf(java_byte_code, "%s", get_type(id_val->arg_type[i]));
         }
@@ -473,8 +473,8 @@ FUN_UNIT: FUN ID '('
             temp->arg_type = malloc(sizeof(int) * arg_tb->size);
             temp->arg_name = malloc(sizeof(char *) * arg_tb->size);
             symbol *temp_ptr = arg_tb->begin;
-            int i = 0;
-            for (; i < arg_tb->size; i++)
+            int i = arg_tb->size - 1;
+            for (; i >= 0; i--)
             {
                 temp->arg_type[i] = temp_ptr->type;
                 temp->arg_name[i] = strdup(temp_ptr->name);
@@ -482,12 +482,13 @@ FUN_UNIT: FUN ID '('
             }
             temp->argn = arg_tb->size;
             insert(temp, top(*s));
+            index_reverse(arg_tb);
             push(arg_tb, s);
 
             fprintf(java_byte_code, "method public static %s %s(", get_type($7), $2);
-            for (i = 0; i < arg_tb->size; i++)
+            for (i = arg_tb->size - 1; i >= 0; i--)
             {
-                if (i == arg_tb->size - 1)
+                if (i == 0)
                 {
                     fprintf(java_byte_code, "%s", get_type(temp->arg_type[i]));
                 }
@@ -498,7 +499,7 @@ FUN_UNIT: FUN ID '('
             }
             fprintf(java_byte_code, ")\nmax_stack 15\n");
             fprintf(java_byte_code, "max_locals 15\n{\n");
-
+            
             arg_tb = NULL;
         }
         else
